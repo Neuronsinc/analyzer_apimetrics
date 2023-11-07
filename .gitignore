@@ -1,0 +1,9 @@
+#Ignore the pycache directory
+__pycache__/
+.env
+.env.local
+*.png
+*.zip
+*.mp4
+*.jpg
+*.jpeg
