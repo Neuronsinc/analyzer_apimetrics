@@ -28,6 +28,7 @@ model = load_model('app/keras_models/Modelo.keras')
 # print(x)
 
 BACKEND = 'https://analyzerapi.troiatec.com'
+#BACKEND = 'http://localhost/Analyzer/Predict_Analyzer_Back'
 client = pymongo.MongoClient('172.17.0.1:27017')
 
 
@@ -121,9 +122,9 @@ def analyze(stimulus: Stimulus, clarity: float, token: str, credentials:ApiCrede
     print(FengResponse['result'])
 
     if ("result" in FengResponse):
-        size = 0
+        #size = 0
         mapsArr = ['gazeplot', 'aoi', 'heatmap', 'opacity']
-
+        namesMap = {}
         id = FengResponse['result']['imageID']
         print(f'id {id}')
 
@@ -142,35 +143,73 @@ def analyze(stimulus: Stimulus, clarity: float, token: str, credentials:ApiCrede
             with open(actual_filename, 'wb') as f:
                 f.write(map.content)
             
+            namesMap[mapa] = actual_filename
+
             # RemoveWatermark(actual_filename, mapsArr[mapaux], getStimulus["title"] + '_feng_' + mapsArr[mapaux])
             # RemoveWatermark(actual_filename, mapa, f'{stimulus.title}_feng_{mapa}')
 
             # size += os.path.getsize(RootPath + actual_filename)
-            size += os.path.getsize(actual_filename)
+            #size += os.path.getsize(actual_filename)
 
-            data = {"idStimulus": stimulus.id_stimulus
-                , "n": f"fengGui_{mapa}"
-                , "api": 3}
+            #data = {"idStimulus": stimulus.id_stimulus
+            #    , "n": f"fengGui_{mapa}"
+            #    , "api": 3}
 
-            if userCreation != None:
+            #if userCreation != None:
                 # data.update({"userCreation": userCreation})
-                data["userCreation"]= userCreation
+            #    data["userCreation"]= userCreation
 
-            fo = open(actual_filename, 'rb')
-            file = {'file': fo} # la ruta debe ser cambiada por la ruta del servidor
-            headers = {'Authorization': f'Bearer {token}'}
-            url_upload = f'{BACKEND}/Stimulus/SaveAndUploadAStimulusV2'
+            #fo = open(actual_filename, 'rb')
+            #file = {'file': fo} # la ruta debe ser cambiada por la ruta del servidor
+            #headers = {'Authorization': f'Bearer {token}'}
+            #url_upload = f'{BACKEND}/Stimulus/SaveAndUploadAStimulusV2'
             # r = requests.post(url=Backend + "/Stimulus/SaveAndUploadAStimulusV2", files=file ,data=data, headers=headers)
-            r = requests.post(url=url_upload, files=file ,data=data, headers=headers)
-            jsonResponse = r.json()
+            #r = requests.post(url=url_upload, files=file ,data=data, headers=headers)
+            #jsonResponse = r.json()
 
-            print(jsonResponse)
+            #print(jsonResponse)
 
-            if(str(jsonResponse) == "successful"):
-                fo.close()
-                remove(actual_filename)
+            #if(str(jsonResponse) == "successful"):
+            #    fo.close()
+            #    remove(actual_filename)
             # mapaux = mapaux + 1
-                
+        nombre_mapas = ["fengGui_gazeplot", "fengGui_aoi", "fengGui_heatmap", "fengGui_opacity"]
+        data = {"idStimulus": stimulus.id_stimulus, "api": 3, "maps": json.dumps(nombre_mapas)}
+
+        if userCreation != None:
+            # data.update({"userCreation": userCreation})
+            data["userCreation"]= userCreation
+        
+        # fgaze = open(namesMap["gazeplot"], 'rb')
+        # faoi = open(namesMap["aoi"], 'rb')
+        # fopacity = open(namesMap["opacity"],'rb')
+        # fheatmap = open(namesMap["heatmap"],'rb')
+        archivos_enviar = {}
+        for i, archivo in enumerate(namesMap):
+            archivos_enviar[f'archivo{i}'] = open(namesMap[archivo], 'rb')
+
+        #filesMap = {'gazeplot': fgaze, 'aoi': faoi, 'opacity': fopacity, 'heatmap': fheatmap}
+        #filesMap = {'archivos': archivos_enviar}
+        headers = {'Authorization': f'Bearer {token}'}
+        url_upload = f'{BACKEND}/Stimulus/SaveAndUploadMaps'
+        r = requests.post(url=url_upload, files=archivos_enviar ,data=data, headers=headers)
+        jsonResponse = r.json()
+
+        print(jsonResponse)
+
+        if (str(jsonResponse) == "successful"):
+            for ar in archivos_enviar.values():
+                ar.close()
+            # fgaze.close()
+            # faoi.close()
+            # fopacity.close()
+            # fheatmap.close()
+            remove(namesMap["gazeplot"])
+            remove(namesMap["aoi"])
+            remove(namesMap["opacity"])
+            remove(namesMap["heatmap"])
+
+            
         #Guardar los scores
         #pasar a una funcion aparte de obtener metricas
         data = {'api': Apis.FENGUI.value} #identificar que el 3 es la metrica de feng
@@ -206,56 +245,84 @@ def analyze(stimulus: Stimulus, clarity: float, token: str, credentials:ApiCrede
         FengResponse['result']['cognitive_load'] = cognitive_demand
         FengResponse['result']['clarity'] = focus #clarity 
         FengResponse['result']['effectivity'] = round(((focus) + (100 - cognitive_demand))/2, 2)
+        values = [{"value": round(float(FengResponse["result"][(metric["name"]).lower()]), 2), "id": metric["id"]}  for metric in ApiMetrics]
+        # for metric in ApiMetrics:
+        #     data = {"value": FengResponse["result"][(metric["name"]).lower()]
+        #             , "idMetric": metric["id"]
+        #             , "idStimulus": stimulus.id_stimulus}
 
-        for metric in ApiMetrics:
-            data = {"value": FengResponse["result"][(metric["name"]).lower()]
-                    , "idMetric": metric["id"]
-                    , "idStimulus": stimulus.id_stimulus}
+        #     if userCreation != None:
+        #         data["userCreation"]= userCreation
 
-            if userCreation != None:
-                data["userCreation"]= userCreation
+        #     headers = {'Authorization': f'Bearer {token}'}
+        #     url_add_score = f'{BACKEND}/Stimulus/AddToScore'
+        #     r = requests.post(url=url_add_score, data=data, headers=headers)
+        #     jsonResponse = r.json()
+        #     print(jsonResponse)
+        #     if("inserted" not in(jsonResponse)):
+        #         return "fail"
+        #print(values)
+        values_json = json.dumps(values)
+        data = {"values": values_json, "idStimulus": stimulus.id_stimulus}
 
-            headers = {'Authorization': f'Bearer {token}'}
-            url_add_score = f'{BACKEND}/Stimulus/AddToScore'
-            r = requests.post(url=url_add_score, data=data, headers=headers)
-            jsonResponse = r.json()
-            print(jsonResponse)
-            if("inserted" not in(jsonResponse)):
-                return "fail"
-            
+        if userCreation != None:
+            data["userCreation"]= userCreation
+
+        headers = {'Authorization': f'Bearer {token}'}
+        url_add_score = f'{BACKEND}/Stimulus/AddAllScores'
+        r = requests.post(url=url_add_score, data=data, headers=headers)
+        jsonResponse = r.json()
+        print(jsonResponse)
+        if("inserted" not in(jsonResponse)):
+            return "fail"
+
 
             #chequear si hay aois , si sí guardar
         
         if ("aOIs" in FengResponse['result']):
             aois = FengResponse['result']['aOIs']
-            j = 0
-            for aoi in aois:
+            aois_values = [{'punctuation': float(aoi['visibilityScore']), 'name': aoi['text']} for aoi in aois]
+            aois_values_json = json.dumps(aois_values)
+            data = {'values': aois_values_json, 'idStimulus': stimulus.id_stimulus, 'idApi': Apis.FENGUI.value}
 
-                data = {'punctuation': aoi['visibilityScore']
-                        , 'name': aoi['text']
-                        , 'idStimulus': stimulus.id_stimulus
-                        , 'idApi': Apis.FENGUI.value}
+            if userCreation != None:
+                data["userCreation"] = userCreation
 
-                if userCreation != None:
-                    data["userCreation"]= userCreation
+            headers = {'Authorization': f'Bearer {token}'}
+            r = requests.post(url=f"{BACKEND}/Stimulus/InsertAllAois",data=data, headers=headers)
+            jsonResponse = r.json()
 
-                headers = {'Authorization': f'Bearer {token}'}
-                # r = requests.post(url=Backend + "/Stimulus/InsertAoi",data=data, headers=headers)
-                r = requests.post(url=f"{BACKEND}/Stimulus/InsertAoi",data=data, headers=headers)
-                jsonResponse = r.json()
+            if("inserted" not in(jsonResponse)):
+                return "fail"
 
-                if("inserted" not in(jsonResponse)):
-                    return "fail"
-                j = j + 1
+            # j = 0
+            # for aoi in aois:
+
+            #     data = {'punctuation': aoi['visibilityScore']
+            #             , 'name': aoi['text']
+            #             , 'idStimulus': stimulus.id_stimulus
+            #             , 'idApi': Apis.FENGUI.value}
+
+            #     if userCreation != None:
+            #         data["userCreation"]= userCreation
+
+            #     headers = {'Authorization': f'Bearer {token}'}
+            #     # r = requests.post(url=Backend + "/Stimulus/InsertAoi",data=data, headers=headers)
+            #     r = requests.post(url=f"{BACKEND}/Stimulus/InsertAoi",data=data, headers=headers)
+            #     jsonResponse = r.json()
+
+            #     if("inserted" not in(jsonResponse)):
+            #         return "fail"
+            #     j = j + 1
 
 
         #save size of stimulus
-        data = {'idStimulus': stimulus.id_stimulus, 'size': size}
-        headers = {'Authorization': f'Bearer {token}'}
+        #data = {'idStimulus': stimulus.id_stimulus, 'size': size}
+        #headers = {'Authorization': f'Bearer {token}'}
 
-        url_update_size = f'{BACKEND}/Stimulus/UpdateSize'
+        #url_update_size = f'{BACKEND}/Stimulus/UpdateSize'
         # size = requests.post(url=Backend + "/Stimulus/UpdateSize",data=data, headers=headers)
-        size = requests.post(url=url_update_size, data=data, headers=headers)
+        #size = requests.post(url=url_update_size, data=data, headers=headers)
         
 
         return "Successful"

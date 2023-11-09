@@ -20,6 +20,7 @@ import requests
 
 
 BACKEND = 'https://analyzerapi.troiatec.com'
+#BACKEND = 'http://localhost/Analyzer/Predict_Analyzer_Back'
 client = pymongo.MongoClient('172.17.0.1:27017')
 
 def analyze(stimulus: Stimulus, token: str, credentials:ApiCredential, settings:StudySettings, userCreation = None):
@@ -99,6 +100,7 @@ def analyze(stimulus: Stimulus, token: str, credentials:ApiCredential, settings:
         if(finished):
             size = 0
             mapsArr = ['heatmap', 'focus']
+            namesMap = {}
             print(study_id)
             for mapa in mapsArr:
                 headers = {'Api-key': credentials.clave}
@@ -108,27 +110,54 @@ def analyze(stimulus: Stimulus, token: str, credentials:ApiCredential, settings:
 
                 with open(actualFname, 'wb') as f:
                     f.write(map.content)
+                
+                namesMap[mapa] = actualFname
 
-                size += os.path.getsize(actualFname)
+                # size += os.path.getsize(actualFname)
 
-                data = {"idStimulus": stimulus.id_stimulus
-                        , "n": f"attentionInsights_{mapa}" #+ mapsArr[mapaux]
-                        , "api": Apis.ATTENTION.value} 
+                # data = {"idStimulus": stimulus.id_stimulus
+                #         , "n": f"attentionInsights_{mapa}" #+ mapsArr[mapaux]
+                #         , "api": Apis.ATTENTION.value} 
 
-                if userCreation != None:
-                    data.update({'userCreation': userCreation})
+                # if userCreation != None:
+                #     data.update({'userCreation': userCreation})
 
-                fo = open(actualFname, 'rb')
-                file = {'file': fo} # la ruta debe ser cambiada por la ruta del servidor
-                headers = {'Authorization': f'Bearer {token}'}
-                r = requests.post(url= f'{BACKEND}/Stimulus/SaveAndUploadAStimulusV2', files=file ,data=data, headers=headers)
-                jsonResponse = r.json()
+                # fo = open(actualFname, 'rb')
+                # file = {'file': fo} # la ruta debe ser cambiada por la ruta del servidor
+                # headers = {'Authorization': f'Bearer {token}'}
+                # r = requests.post(url= f'{BACKEND}/Stimulus/SaveAndUploadAStimulusV2', files=file ,data=data, headers=headers)
+                # jsonResponse = r.json()
 
-                print(jsonResponse)
+                # print(jsonResponse)
 
-                if(str(jsonResponse) == "successful"):
-                    fo.close()
-                    remove(actualFname)
+                # if(str(jsonResponse) == "successful"):
+                #     fo.close()
+                #     remove(actualFname)
+            nombre_mapas = ["attentionInsights_heatmap", "attentionInsights_focus"]
+            data = {"idStimulus": stimulus.id_stimulus, "api": Apis.ATTENTION.value, "maps": json.dumps(nombre_mapas)}
+
+            if userCreation != None:
+                # data.update({"userCreation": userCreation})
+                data["userCreation"]= userCreation
+
+            archivos_enviar = {}
+            for i, archivo in enumerate(namesMap):
+                archivos_enviar[f'archivo{i}'] = open(namesMap[archivo], 'rb')
+
+            headers = {'Authorization': f'Bearer {token}'}
+            url_upload = f'{BACKEND}/Stimulus/SaveAndUploadMaps'
+            r = requests.post(url=url_upload, files=archivos_enviar ,data=data, headers=headers)
+            jsonResponse = r.json()
+
+            print(jsonResponse)
+
+            if (str(jsonResponse) == "successful"):
+                for ar in archivos_enviar.values():
+                    ar.close()
+                
+                remove(namesMap["heatmap"])
+                remove(namesMap["focus"])
+
 
             
         #obtener y guardar los scores
@@ -159,31 +188,48 @@ def analyze(stimulus: Stimulus, token: str, credentials:ApiCredential, settings:
             
             i = 0
             #TODO: falto cambiar esto por una mejor forma de iterar, esto va con el todo anterior
-            while(i < len(metricsids)):
+            values = [{"value": float(arrScore["data"]["aesthetics"]["clarity_score"]), "id": metricsids[i]}  for i in range(len(ApiMetrics))]
+            objeto.update({"clarity": arrScore["data"]["aesthetics"]["clarity_score"]})
+            #print(values)
+            values_json = json.dumps(values)
+            data = {"values": values_json, "idStimulus": stimulus.id_stimulus}
+
+            if userCreation != None:
+                data["userCreation"]= userCreation
+
+            headers = {'Authorization': f'Bearer {token}'}
+            url_add_score = f'{BACKEND}/Stimulus/AddAllScores'
+            r = requests.post(url=url_add_score, data=data, headers=headers)
+            jsonResponse = r.json()
+            print(jsonResponse)
+            if("inserted" not in(jsonResponse)):
+                return "fail"
+
+            # while(i < len(metricsids)):
                 
-                data = {"value": arrScore["data"]["aesthetics"]["clarity_score"]
-                        , "idMetric": metricsids[i]
-                        , "idStimulus": stimulus.id_stimulus}
+            #     data = {"value": arrScore["data"]["aesthetics"]["clarity_score"]
+            #             , "idMetric": metricsids[i]
+            #             , "idStimulus": stimulus.id_stimulus}
 
-                objeto.update({"clarity": arrScore["data"]["aesthetics"]["clarity_score"]})
+            #     objeto.update({"clarity": arrScore["data"]["aesthetics"]["clarity_score"]})
 
-                if userCreation != None:
-                    data.update({"userCreation": userCreation})
+            #     if userCreation != None:
+            #         data.update({"userCreation": userCreation})
 
-                headers = {'Authorization': f'Bearer {token}'}
-                r = requests.post(url= f"{BACKEND}/Stimulus/AddToScore",data=data, headers=headers)
-                jsonResponse = r.json()
+            #     headers = {'Authorization': f'Bearer {token}'}
+            #     r = requests.post(url= f"{BACKEND}/Stimulus/AddToScore",data=data, headers=headers)
+            #     jsonResponse = r.json()
 
-                if("inserted" not in(jsonResponse)):
-                    return "fail"
+            #     if("inserted" not in(jsonResponse)):
+            #         return "fail"
             
-                i = i + 1
+            #     i = i + 1
 
             #save size of stimulus
-            data = {'idStimulus': stimulus.id_stimulus, 'size': size}
-            headers = {'Authorization': token}
+            #data = {'idStimulus': stimulus.id_stimulus, 'size': size}
+            #headers = {'Authorization': token}
 
-            size = requests.post(url=f"{BACKEND}/Stimulus/UpdateSize",data=data, headers=headers)
+            #size = requests.post(url=f"{BACKEND}/Stimulus/UpdateSize",data=data, headers=headers)
             
             return objeto
 
