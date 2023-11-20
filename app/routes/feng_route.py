@@ -24,8 +24,10 @@ router = APIRouter()
 
 route_predict = 'app/image_cache'
 
-REDIS='127.0.0.1'
-REDISPORT=6379
+REDIS='redis-14737.c274.us-east-1-3.ec2.cloud.redislabs.com'
+REDISPORT=14737
+REDISUSERNAME = 'default'
+REDISPASSWORD = 'sBiMwZAb2w1jmwGDIMmi7kx941ArAGXQ'
 
 @router.post("/Attention/file/analyze")
 async def analyze_file(file: UploadFile):
@@ -63,7 +65,7 @@ def data(arequest: VRequest):
     data = analyzeVids(stimulus, arequest.analyzer_token, credentials)
 
     if data["message"] == "success":
-        connection = redis.Redis(host=REDIS, port=REDISPORT)
+        connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
         # Objeto Python a  almacenar en Redis
         mi_objeto = {
         'videoID': data["result"], 
@@ -97,7 +99,7 @@ def data(arequest: RedisReq):
     vids = getAndSaveVids(stimulus, arequest.token, credentials, arequest.videoID)
 
     if (csv == "Successful" and vids == "Successful"):
-        connection = redis.Redis(host=REDIS, port=REDISPORT)
+        connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
 
         mi_objeto = {
         'videoID': arequest.videoID, 
@@ -115,7 +117,7 @@ def data(arequest: RedisReq):
         connection.publish('Analizados', json.dumps(mi_objeto))
         sendMail(mi_objeto['idUser'], mi_objeto['StimulusName'], mi_objeto['FolderName'], mi_objeto['token'], "0")
     else:
-        connection = redis.Redis(host=REDIS, port=REDISPORT)
+        connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
 
         mi_objeto = {
         'videoID': arequest.videoID, 
