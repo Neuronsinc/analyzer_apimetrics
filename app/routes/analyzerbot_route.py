@@ -70,7 +70,7 @@ def data(t: Request, file: UploadFile = File(...), id_folder: str = Form()):
             extension = '.mp4'
             originalName = originalName[0: len(originalName) - 4]
             
-        redimensionada = comprimir_imagen(file.file)
+        
         # fileName = str(today.day) + str(today.month) + str(today.year) + "_" +str(today.hour)+str(today.minute)+str(today.second) + (re.sub('[^A-Za-z0-9]+','',re.sub('\s+', '-', (originalName).lower()))) + extension
         h = f'{datetime.now().strftime("%d%m%Y_%H%M%S")}'
         # digest = h.hexdigest()
@@ -78,10 +78,13 @@ def data(t: Request, file: UploadFile = File(...), id_folder: str = Form()):
         reg = re.sub('[^A-Za-z0-9]+','',re.sub('\s+', '-', (originalName).lower()))
         fileName = f"{h}{reg}{extension}"
         
-        redimensionada.save(fileName)
-        #with open(fileName, 'wb') as f:
-            #shutil.copyfileobj(file.file, f)
-            #shutil.copyfileobj(redimensionada, f)
+        if  (extension != ".mp4"):
+            redimensionada = comprimir_imagen(file.file)
+            redimensionada.save(fileName)
+        else:
+            with open(fileName, 'wb') as f:
+                shutil.copyfileobj(file.file, f)
+                #shutil.copyfileobj(redimensionada, f)
 
         data = {'id_folder': id_folder}
         # fo = open(RootPath + fileName, 'rb')
