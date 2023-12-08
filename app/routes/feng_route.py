@@ -55,6 +55,8 @@ def analyze_from_predict(arequest: ARequest):
     # studySettings = {"study_name": getS["title"], "study_type": "general", "content_type": "general", 'tasks[0]': 'focus', 'tasks[1]': 'clarity_score'}
     analyze(stimulus, float(arequest.clarity), arequest.analyzer_token, credentials)
 
+    handleStatus(arequest.id_stimulus, 2, arequest.analyzer_token)
+
     return "ok"
 
 @router.post('/Feng/analyze/vids')

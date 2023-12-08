@@ -8,6 +8,8 @@ import shutil
 from app.apis.attention.attention import analyze
 from app.apis.attention.attention import get_dataset
 
+from app.apis.feng.feng import handleStatus
+
 from app.apis.analyzer.analyzer import get_api_credentials
 from app.apis.analyzer.analyzer import get_stimulus
 from app.model.api_model import ARequest
@@ -36,6 +38,8 @@ def analyze_from_predict(arequest: ARequest):
     settings = StudySettings(study_name=stimulus.title, study_type='general', content_type='general')
 
     response = analyze(stimulus, arequest.analyzer_token, credentials, settings)
+
+    handleStatus(arequest.id_stimulus, 1, arequest.analyzer_token)
 
     return response
 
