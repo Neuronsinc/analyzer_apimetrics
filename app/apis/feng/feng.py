@@ -463,3 +463,10 @@ def sendMail(id: str, vidName: str, folderName: str, token: str, tipo: str):
     requests.post(url=url, data=data, headers=headers)
     return "true"
 
+def handleStatus(idStimulus, status, token: str):
+    data = {'id': idStimulus, 'status': status, 'error': ""}
+    headers = {'Authorization': f'Bearer {token}'}
+    url = f'{BACKEND}/Stimulus/handleStatus'
+    requests.post(url=url, data=data, headers=headers)
+    return "true"
+

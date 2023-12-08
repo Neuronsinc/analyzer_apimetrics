@@ -8,7 +8,7 @@ from app.apis.predict import predict, driver
 import shutil
 from app.apis.feng.feng import analyze
 from app.apis.feng.feng import get_dataset
-from app.apis.feng.feng import analyzeVids, getAndSaveCsv, getAndSaveVids, sendMail
+from app.apis.feng.feng import analyzeVids, getAndSaveCsv, getAndSaveVids, sendMail, handleStatus
 
 from app.apis.analyzer.analyzer import get_api_credentials
 from app.apis.analyzer.analyzer import get_stimulus
@@ -112,7 +112,7 @@ def data(arequest: RedisReq):
         'StimulusName': arequest.StimulusName,
         'FolderName': arequest.FolderName
         }
-
+        handleStatus(mi_objeto["idStimulus"], 2, mi_objeto['token'])
         connection.lpush('Analizados', json.dumps(mi_objeto))
         connection.publish('Analizados', json.dumps(mi_objeto))
         sendMail(mi_objeto['idUser'], mi_objeto['StimulusName'], mi_objeto['FolderName'], mi_objeto['token'], "0")
@@ -130,7 +130,7 @@ def data(arequest: RedisReq):
         'StimulusName': arequest.StimulusName,
         'FolderName': arequest.FolderName
         }
-
+        handleStatus(mi_objeto["idStimulus"], 3, mi_objeto['token'])
         connection.lpush('Fallados', json.dumps(mi_objeto))
         connection.publish('Fallados', json.dumps(mi_objeto))
         sendMail(mi_objeto['idUser'], mi_objeto['StimulusName'], mi_objeto['FolderName'], mi_objeto['token'], "1")
