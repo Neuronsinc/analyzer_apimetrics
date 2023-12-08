@@ -15,6 +15,7 @@ from app.apis.analyzer.analyzer import get_stimulus
 from app.model.api_model import ARequest
 from app.model.api_model import Apis
 from app.model.attention_model import StudySettings
+from fastapi.responses import JSONResponse
 
 
 router = APIRouter()
@@ -37,11 +38,15 @@ def analyze_from_predict(arequest: ARequest):
     stimulus = get_stimulus(arequest.id_stimulus, arequest.analyzer_token)
     settings = StudySettings(study_name=stimulus.title, study_type='general', content_type='general')
 
-    response = analyze(stimulus, arequest.analyzer_token, credentials, settings)
+    response = ""
+    try:
+        response = analyze(stimulus, arequest.analyzer_token, credentials, settings)
+        handleStatus(arequest.id_stimulus, 1, arequest.analyzer_token)
+    except:
+        handleStatus(arequest.id_stimulus, 3, arequest.analyzer_token)
+        return JSONResponse(content="failed", status_code=500)
 
-    handleStatus(arequest.id_stimulus, 1, arequest.analyzer_token)
-
-    return response
+    return JSONResponse(content=response, status_code=200)
 
 
 # @router.post("/Attention/Dataset")

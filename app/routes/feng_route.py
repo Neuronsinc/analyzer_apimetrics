@@ -53,11 +53,15 @@ def analyze_from_predict(arequest: ARequest):
     stimulus = get_stimulus(arequest.id_stimulus, arequest.analyzer_token)
 
     # studySettings = {"study_name": getS["title"], "study_type": "general", "content_type": "general", 'tasks[0]': 'focus', 'tasks[1]': 'clarity_score'}
-    analyze(stimulus, float(arequest.clarity), arequest.analyzer_token, credentials)
+    response = ""
+    try:
+        response = analyze(stimulus, float(arequest.clarity), arequest.analyzer_token, credentials)
+        handleStatus(arequest.id_stimulus, 2, arequest.analyzer_token)
+    except:
+        handleStatus(arequest.id_stimulus, 3, arequest.analyzer_token) # fallo
+        return JSONResponse(content="failed", status_code=500)
 
-    handleStatus(arequest.id_stimulus, 2, arequest.analyzer_token)
-
-    return "ok"
+    return JSONResponse(content=response, status_code=200)
 
 @router.post('/Feng/analyze/vids')
 def data(arequest: VRequest):
@@ -88,7 +92,8 @@ def data(arequest: VRequest):
         connection.rpush('Procesar', cadena_json)
         connection.publish('Procesar', cadena_json)
         return JSONResponse(content=data["result"], status_code=200)
-
+    
+    handleStatus(arequest.id_stimulus, 3, arequest.analyzer_token)
     return JSONResponse(content=data["result"], status_code=500)
 
 
