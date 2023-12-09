@@ -1,6 +1,5 @@
 import requests
 # from PIL import Image, ImageDraw, ImageFont
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 import hashlib
 import pymongo

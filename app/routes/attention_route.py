@@ -2,8 +2,7 @@ from fastapi import APIRouter, File, UploadFile
 from typing import List
 # from app.apis.predict.predict import analyze_file
 # from app.apis.predict.predict import download_file
-from app.apis.predict.predict_user import UserList
-from app.apis.predict import predict, driver
+
 import shutil
 from app.apis.attention.attention import analyze
 from app.apis.attention.attention import get_dataset

@@ -3,8 +3,7 @@ from fastapi.responses import JSONResponse
 from typing import List
 # from app.apis.predict.predict import analyze_file
 # from app.apis.predict.predict import download_file
-from app.apis.predict.predict_user import UserList
-from app.apis.predict import predict, driver
+
 import shutil
 from app.apis.feng.feng import analyze
 from app.apis.feng.feng import get_dataset
@@ -62,6 +61,8 @@ def analyze_from_predict(arequest: ARequest):
         return JSONResponse(content="failed", status_code=500)
 
     return JSONResponse(content=response, status_code=200)
+
+
 
 @router.post('/Feng/analyze/vids')
 def data(arequest: VRequest):

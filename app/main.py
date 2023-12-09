@@ -7,7 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes import feng_route
 from app.routes import attention_route
-from app.routes import predict_route
 from app.routes import analyzerbot_route
 
 # origins = [
@@ -27,5 +26,4 @@ app.add_middleware(
 
 app.include_router(feng_route.router)
 app.include_router(attention_route.router)
-app.include_router(predict_route.router)
 app.include_router(analyzerbot_route.router)

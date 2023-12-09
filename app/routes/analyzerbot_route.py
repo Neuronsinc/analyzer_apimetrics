@@ -1,8 +1,5 @@
 from fastapi import APIRouter, File, UploadFile, Request, Form
 
-# from app.apis.predict.predict import analyze_file
-# from app.apis.predict.predict import download_file
-# from app.apis.analyzer import send_to_analyzer
 import requests
 import os
 from os import remove
