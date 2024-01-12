@@ -237,7 +237,7 @@ def analyze(stimulus: Stimulus, clarity: float, token: str, credentials:ApiCrede
         focus = round(((clear + clarity)/2), 2)
         print(f'focus: {focus} clear {clear} clarity {clarity}')
 
-        cognitive_demand = round(model.predict(np.array([[float(complexity), (100-clarity)]]))[0][0], 2)
+        cognitive_demand = 100 - round(model.predict(np.array([[float(complexity), (100-clarity)]]))[0][0], 2)
 
         print(f'clear: {clear}')
 
