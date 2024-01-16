@@ -4,6 +4,7 @@ import requests
 import hashlib
 import pymongo
 import boto3
+import pandas as pd
 from keras.models import load_model
 import numpy as np
 # model = load_model('model.h5')
@@ -243,7 +244,7 @@ def analyze(stimulus: Stimulus, clarity: float, token: str, credentials:ApiCrede
 
         FengResponse['result']['cognitive_load'] = cognitive_demand
         FengResponse['result']['clarity'] = focus #clarity 
-        FengResponse['result']['effectivity'] = round(((focus) + (100 - cognitive_demand))/2, 2)
+        FengResponse['result']['effectivity'] = round(((focus) + (cognitive_demand))/2, 2)
         values = [{"value": round(float(FengResponse["result"][(metric["name"]).lower()]), 2), "id": metric["id"]}  for metric in ApiMetrics]
         # for metric in ApiMetrics:
         #     data = {"value": FengResponse["result"][(metric["name"]).lower()]
@@ -365,9 +366,31 @@ def getAndSaveCsv(stimulus: Stimulus, token: str, credentials: ApiCredential, id
 
     with open(csv_name, 'wb') as f:
         f.write(csvf.content)
+    
+    # Modificar nombre de encabezado de complexity a clarity así como sus valores 100 - complexity
+    df = pd.read_csv(csv_name)
+    
+    # Especifica el nombre de la columna que quieres cambiar
+    columna_a_cambiar = 'Complexity'
+
+    # Define el nuevo nombre de la columna
+    nuevo_nombre_columna = 'Clarity'
+
+    # Define la nueva información que deseas colocar en la columna
+    nuevo_valor = [100 - val for val in df[columna_a_cambiar]]
+
+    # Cambia el nombre de la columna
+    df = df.rename(columns={columna_a_cambiar: nuevo_nombre_columna})
+
+    # Cambia todos los valores de la columna con el nuevo valor
+    df[nuevo_nombre_columna] = nuevo_valor
+
+    # Guarda el DataFrame modificado de vuelta al archivo CSV
+    df.to_csv(csv_name, index=False)
+
 
     #Obtener promedios de métricas 
-    columnas_interes = ['Complexity', 'Focus']
+    columnas_interes = ['Clarity', 'Focus']
 
     # Diccionario para almacenar los totales de las columnas
     totales = {col: 0 for col in columnas_interes}
@@ -395,10 +418,10 @@ def getAndSaveCsv(stimulus: Stimulus, token: str, credentials: ApiCredential, id
                         pass    
 
     promedios = {col: totales[col] / conteo_filas[col] for col in columnas_interes}   
-    effectivity = round((((100 - promedios["Complexity"]) + promedios["Focus"]) / 2), 2)
+    effectivity = round((((promedios["Clarity"]) + promedios["Focus"]) / 2), 2)
     
     #Enviar todo al backend para ser guardado (scores, csv)
-    data =  {"idStimulus": stimulus.id_stimulus, "Complexity": round(promedios["Complexity"], 2), "Focus": round(promedios["Focus"] , 2), "Effectivity": effectivity}
+    data =  {"idStimulus": stimulus.id_stimulus, "Complexity": round(promedios["Clarity"], 2), "Focus": round(promedios["Focus"] , 2), "Effectivity": effectivity}
     fo = open(csv_name, 'rb')
     file = {'file': fo}
     headers = {'Authorization': f'Bearer {token}'}
