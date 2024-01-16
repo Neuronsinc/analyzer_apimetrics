@@ -227,6 +227,7 @@ def analyze(stimulus: Stimulus, clarity: float, token: str, credentials:ApiCrede
         ApiMetrics.append({"name":"cognitive_load", "id":1}) 
         ApiMetrics.append({"name":"clarity", "id":2}) 
         ApiMetrics.append({"name":"effectivity", "id":3}) 
+        ApiMetrics.append({"name": "memorability", "id": 14})
             
         # i = 0
         clear = FengResponse['result']['clear']
@@ -245,6 +246,7 @@ def analyze(stimulus: Stimulus, clarity: float, token: str, credentials:ApiCrede
         FengResponse['result']['cognitive_load'] = cognitive_demand
         FengResponse['result']['clarity'] = focus #clarity 
         FengResponse['result']['effectivity'] = round(((focus) + (cognitive_demand))/2, 2)
+        FengResponse['result']['memorability'] = round((cognitive_demand + FengResponse['result']['exciting'])/2, 2)
         values = [{"value": round(float(FengResponse["result"][(metric["name"]).lower()]), 2), "id": metric["id"]}  for metric in ApiMetrics]
         # for metric in ApiMetrics:
         #     data = {"value": FengResponse["result"][(metric["name"]).lower()]
