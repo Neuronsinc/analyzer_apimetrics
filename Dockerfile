@@ -35,7 +35,28 @@ RUN pip install watchdog
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
 # RUN pip freeze > requirements_container.txt
+RUN apt -y install curl
+
 COPY . /code
+
+COPY dbuild.sh /dbuild.sh
+RUN chmod +x /dbuild.sh
+
+
+ARG TIME
+ENV BUILD_TIME=$TIME
+
+ARG START
+ENV BUILD_START=$START
+
+ARG BRANCH
+ENV BUILD_BRANCH=$BRANCH
+
+ARG COMMIT
+ENV BUILD_COMMIT=$COMMIT
+
+ARG DEV_END
+ENV DEVELOP_END=$DEV_END
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80", "--reload", "--ws-ping-interval", "1", "--ws-ping-timeout", "180"]
 # CMD ["pytest"]
