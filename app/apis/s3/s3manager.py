@@ -8,8 +8,8 @@ class S3Manager:
     def __init__(self):
         self.b = boto3.resource('s3'
                 , region_name='us-east-1'
-                , aws_access_key_id='AKIA5DCHBSHBOELYSP2J'
-                , aws_secret_access_key='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')
+                , aws_access_key_id='AKIA5DCHBSHBGAJ64FO2'
+                , aws_secret_access_key='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')
 
         self.bucket = self.b.Bucket('geotec-dev')
 

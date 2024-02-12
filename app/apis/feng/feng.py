@@ -5,8 +5,9 @@ import hashlib
 import pymongo
 import boto3
 import pandas as pd
-from keras.models import load_model
+#from keras.models import load_model
 import numpy as np
+from sklearn.utils.extmath import safe_sparse_dot
 # model = load_model('model.h5')
 
 from app.model.analyzer_model import Stimulus
@@ -22,7 +23,7 @@ import csv
 import datetime
 
 
-model = load_model('app/keras_models/Modelo.keras')
+#model = load_model('app/keras_models/Modelo.keras')
 # input_array = np.array([[10,10]])
 # x = model.predict(input_array)
 # print(x)
@@ -99,7 +100,7 @@ def get_dataset(set: str,credentials, max:int=100):
 
 
 # def analyze_file(api:str , getStimulus, idStimulus, token, userCreation = None):
-def analyze(stimulus: Stimulus, clarity: float, token: str, credentials:ApiCredential, userCreation = None):
+def analyze(stimulus: Stimulus, clarity: float, token: str, credentials:ApiCredential, model, userCreation = None):
     print('analizando feng')
     jsonrpc = {
         "jsonrpc": "2.0",
@@ -239,6 +240,7 @@ def analyze(stimulus: Stimulus, clarity: float, token: str, credentials:ApiCrede
         focus = round(((clear + clarity)/2), 2)
         print(f'focus: {focus} clear {clear} clarity {clarity}')
 
+        # el 100 se le agrego para darle vuelta y que sea claridad
         cognitive_demand = 100 - round(model.predict(np.array([[float(complexity), (100-clarity)]]))[0][0], 2)
 
         print(f'clear: {clear}')
@@ -246,6 +248,7 @@ def analyze(stimulus: Stimulus, clarity: float, token: str, credentials:ApiCrede
         FengResponse['result']['cognitive_load'] = cognitive_demand
         FengResponse['result']['clarity'] = focus #clarity 
         FengResponse['result']['effectivity'] = round(((focus) + (cognitive_demand))/2, 2)
+        FengResponse['result']['exciting'] = safe_sparse_dot(np.array([100 - cognitive_demand, focus, clarity]), np.array([ 0.28347913, -0.03280114,  0.249287  ]), dense_output=True) + 41.20654553371412 # aproximación con regresión lineal
         FengResponse['result']['memorability'] = round((cognitive_demand + FengResponse['result']['exciting'])/2, 2)
         values = [{"value": round(float(FengResponse["result"][(metric["name"]).lower()]), 2), "id": metric["id"]}  for metric in ApiMetrics]
         # for metric in ApiMetrics:

@@ -11,6 +11,7 @@ from app.apis.feng.feng import analyzeVids, getAndSaveCsv, getAndSaveVids, sendM
 
 from app.apis.analyzer.analyzer import get_api_credentials
 from app.apis.analyzer.analyzer import get_stimulus
+from keras.models import load_model
 
 from app.model.api_model import ARequest
 from app.model.api_model import Apis
@@ -27,6 +28,8 @@ REDIS='redis-14737.c274.us-east-1-3.ec2.cloud.redislabs.com'
 REDISPORT=14737
 REDISUSERNAME = 'default'
 REDISPASSWORD = 'sBiMwZAb2w1jmwGDIMmi7kx941ArAGXQ'
+
+model = load_model('app/keras_models/Modelo.keras')
 
 @router.post("/Attention/file/analyze")
 async def analyze_file(file: UploadFile):
@@ -54,7 +57,7 @@ def analyze_from_predict(arequest: ARequest):
     # studySettings = {"study_name": getS["title"], "study_type": "general", "content_type": "general", 'tasks[0]': 'focus', 'tasks[1]': 'clarity_score'}
     response = ""
     try:
-        response = analyze(stimulus, float(arequest.clarity), arequest.analyzer_token, credentials)
+        response = analyze(stimulus, float(arequest.clarity), arequest.analyzer_token, credentials, model)
         handleStatus(arequest.id_stimulus, 2, arequest.analyzer_token)
     except:
         handleStatus(arequest.id_stimulus, 3, arequest.analyzer_token) # fallo
