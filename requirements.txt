@@ -41,3 +41,4 @@ keras==2.13.1
 redis==5.0.1
 async-timeout==4.0.2
 Pillow==9.3.0
+cachetools==5.3.1
