@@ -10,6 +10,7 @@ class VRequest(BaseModel):
     idFolder: str
     StimulusName: str
     FolderName: str
+    Duration: str
 
 
 class RedisReq(BaseModel):
@@ -22,3 +23,5 @@ class RedisReq(BaseModel):
     idFolder: str
     StimulusName: str
     FolderName: str
+    UploadedAccount: str
+    Duration: str

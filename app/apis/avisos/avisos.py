@@ -1,16 +1,30 @@
 import requests
+import os
+from os import remove
+from datetime import datetime
 
-BACKEND = os.getenv('BACKEND')
+BACKEND = 'https://analyzerapi.troiatec.com'
+#BACKEND = 'http://localhost/Analyzer/Predict_Analyzer_Back/'
 
-def AvisoSoporte(tipo, id_folder, fileName, token, mensaje, cuenta, apis):
+RootPath = os.getenv('ROOT')
+
+def AvisoSoporte(tipo, id_folder, fileName, token, mensaje, cuenta, apis, imageUrl):
     data = {"type": tipo, "idF": id_folder, "Emessage": mensaje, "cuenta": cuenta, "apis": apis}
-    fo = open(RootPath + fileName, 'rb')
+
+    res = requests.get(imageUrl)
+    today = datetime.now()
+    fname = str(today.day) + str(today.month) + str(today.year) + "_" +str(today.hour) + fileName
+    if res.status_code == 200:
+        with open(fname, 'wb') as file:
+            file.write(res.content)
+
+    fo = open(fname, 'rb')
     file = {'File': fo}
-    headers = {'Authorization': token}
-    r = requests.post(url= Backend + '/BotSupport/new_mail', files=file ,data=data, headers=headers)
+    headers = {'Authorization': f'Bearer {token}'}
+    r = requests.post(url= BACKEND + '/BotSupport/new_mail', files=file ,data=data, headers=headers)
     jsonResponse = r.json()
-    
+    print("jsonnn responseee de aviso =>>>>", jsonResponse)
     # Eliminar archivo y zip.
     fo.close()
-    remove(fileName)
+    remove(fname)
     return jsonResponse

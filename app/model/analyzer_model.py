@@ -11,5 +11,6 @@ class Stimulus(BaseModel):
 class ApiCredential(BaseModel):
     clave: str
     url: str
+    name: str
 
 

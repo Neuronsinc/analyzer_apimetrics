@@ -32,7 +32,7 @@ async def analyze_file(file: UploadFile):
 def analyze_from_predict(arequest: ARequest):
     # feng.analyze_file()
 
-    credentials = get_api_credentials(Apis.ATTENTION.value, arequest.analyzer_token)
+    credentials = get_api_credentials(Apis.ATTENTION.value, arequest.analyzer_token, False, 0)
 
     stimulus = get_stimulus(arequest.id_stimulus, arequest.analyzer_token)
     settings = StudySettings(study_name=stimulus.title, study_type='general', content_type='general')
@@ -64,7 +64,7 @@ def analyze_from_predict(arequest: ARequest):
 async def fill_dataset(arequest: ARequest):
     # feng.analyze_file()
 
-    credentials = get_api_credentials(Apis.ATTENTION.value, arequest.analyzer_token)
+    credentials = get_api_credentials(Apis.ATTENTION.value, arequest.analyzer_token, False)
     get_dataset(arequest.id_stimulus, credentials=credentials, max=200)
     
     return "fff"

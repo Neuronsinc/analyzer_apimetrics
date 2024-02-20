@@ -8,6 +8,7 @@ import shutil
 from app.apis.feng.feng import analyze
 from app.apis.feng.feng import get_dataset
 from app.apis.feng.feng import analyzeVids, getAndSaveCsv, getAndSaveVids, sendMail, handleStatus
+from app.apis.avisos.avisos import AvisoSoporte
 
 from app.apis.analyzer.analyzer import get_api_credentials
 from app.apis.analyzer.analyzer import get_stimulus
@@ -16,9 +17,14 @@ from keras.models import load_model
 from app.model.api_model import ARequest
 from app.model.api_model import Apis
 from app.model.feng_vids_model import VRequest, RedisReq
+
+from app.model.cache_model import cache_manager
+from app.model.clarity_model import model_manager
+
 # from app.model.attention_model import StudySettings
 import redis
 import json
+import math
 
 router = APIRouter()
 
@@ -28,8 +34,6 @@ REDIS='redis-14737.c274.us-east-1-3.ec2.cloud.redislabs.com'
 REDISPORT=14737
 REDISUSERNAME = 'default'
 REDISPASSWORD = 'sBiMwZAb2w1jmwGDIMmi7kx941ArAGXQ'
-
-model = load_model('app/keras_models/Modelo.keras')
 
 @router.post("/Attention/file/analyze")
 async def analyze_file(file: UploadFile):
@@ -50,14 +54,29 @@ async def analyze_file(arequest: ARequest):
 
 @router.post("/Feng/analyze")
 def analyze_from_predict(arequest: ARequest):
-
-    credentials = get_api_credentials(Apis.FENGUI.value, arequest.analyzer_token)
+    cache = cache_manager.get_cache_instance()
+    credentials = get_api_credentials(Apis.FENGUI.value, arequest.analyzer_token, True, 0, cache)
     stimulus = get_stimulus(arequest.id_stimulus, arequest.analyzer_token)
+
+    if credentials == "Ninguno" or credentials == "NingunaEspecifica":
+        mensaje = ""
+        if credentials == "Ninguno":
+            mensaje = "Se acabaron los créditos en todas las cuentas y no es posible analizar nada más."
+        elif credentials == "NingunaEspecifica":
+            mensaje = "En ninguna cuenta hay disponibilidad para subir el estímulo requerido."
+
+        AvisoSoporte(0, stimulus.id_folder, stimulus.filename, arequest.analyzer_token, mensaje, "Todas", "Feng", stimulus.image_url)
+        handleStatus(arequest.id_stimulus, 3, arequest.analyzer_token)
+        return JSONResponse(content="failed", status_code=500)
 
     # studySettings = {"study_name": getS["title"], "study_type": "general", "content_type": "general", 'tasks[0]': 'focus', 'tasks[1]': 'clarity_score'}
     response = ""
+    model = model_manager.get_model_instance()
     try:
         response = analyze(stimulus, float(arequest.clarity), arequest.analyzer_token, credentials, model)
+        # al ser exitoso debemos restar los créditos de la cuenta seleccionada
+        cache_manager.extract_credits(credentials.name, 1)
+
         handleStatus(arequest.id_stimulus, 2, arequest.analyzer_token)
     except:
         handleStatus(arequest.id_stimulus, 3, arequest.analyzer_token) # fallo
@@ -69,8 +88,20 @@ def analyze_from_predict(arequest: ARequest):
 
 @router.post('/Feng/analyze/vids')
 def data(arequest: VRequest):
-    credentials = get_api_credentials(Apis.FENGUI.value, arequest.analyzer_token)
+    cache = cache_manager.get_cache_instance()
+    credentials = get_api_credentials(Apis.FENGUI.value, arequest.analyzer_token, True, 1, cache, arequest.Duration)
     stimulus = get_stimulus(arequest.id_stimulus, arequest.analyzer_token)
+
+    if credentials == "Ninguno" or credentials == "NingunaEspecifica":
+        mensaje = ""
+        if credentials == "Ninguno":
+            mensaje = "Se acabaron los créditos en todas las cuentas y no es posible analizar nada más."
+        elif credentials == "NingunaEspecifica":
+            mensaje = "En ninguna cuenta hay disponibilidad para subir el estímulo requerido."
+
+        AvisoSoporte(0, stimulus.id_folder, stimulus.filename, arequest.analyzer_token, mensaje, "Todas", "Feng", stimulus.image_url)
+        handleStatus(arequest.id_stimulus, 3, arequest.analyzer_token)
+        return JSONResponse(content="failed", status_code=500)
 
     data = analyzeVids(stimulus, arequest.analyzer_token, credentials)
 
@@ -86,7 +117,9 @@ def data(arequest: VRequest):
         'token': arequest.analyzer_token,
         'idFolder': arequest.idFolder,
         'StimulusName': arequest.StimulusName,
-        'FolderName': arequest.FolderName
+        'FolderName': arequest.FolderName,
+        'UploadedAccount': credentials.name,
+        'Duration': arequest.Duration
         }
 
         # Serializar el objeto como una cadena JSON
@@ -103,13 +136,18 @@ def data(arequest: VRequest):
 
 @router.post('/Feng/upload/vids')
 def data(arequest: RedisReq):
-    credentials = get_api_credentials(Apis.FENGUI.value, arequest.token)
+    cache = cache_manager.get_cache_instance()
+    credentials = get_api_credentials(Apis.FENGUI.value, arequest.token, False, 1, cache, 1, arequest.UploadedAccount)
     stimulus = get_stimulus(arequest.idStimulus, arequest.token)
 
     csv = getAndSaveCsv(stimulus, arequest.token, credentials, arequest.videoID)
     vids = getAndSaveVids(stimulus, arequest.token, credentials, arequest.videoID)
 
     if (csv == "Successful" and vids == "Successful"):
+         # al ser exitoso debemos restar los créditos de la cuenta seleccionada
+        total_creditos_videos = math.ceil(arequest.Duration / 10)
+        cache_manager.extract_credits(credentials.name, total_creditos_videos)
+
         connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
 
         mi_objeto = {

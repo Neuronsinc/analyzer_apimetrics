@@ -1,9 +1,11 @@
 import requests
 import os
+import math
 from pydantic import BaseModel
 
 from app.model.analyzer_model import Stimulus
 from app.model.analyzer_model import ApiCredential
+from app.model.cache_model import cache_manager
 
 
 # class Stimulu:
@@ -16,17 +18,176 @@ BACKEND = 'https://analyzerapi.troiatec.com'
 #BACKEND = 'http://localhost/Analyzer/Predict_Analyzer_Back/'
 # BACKEND = os.getenv('BACKEND')
 
+def seleccionar_cuenta(cuentas, type, duration = 1):
+    """
+    Esta función permite realizar la seleccion de que cuenta de Feng será posible subir el archivo a ser analizado.
 
-def get_api_credentials(api, token) -> ApiCredential:
-    data = {'api': api}
-    headers = {'Authorization': f'Bearer {token}'}
-    # headers = {'Authorization': f'{token}'}
+    retorna un dict con la información sobre la cuenta seleccionada.
+    También si falla retorna "Ninguna" o "NingunaEspecifica" para cuando ya no hay creditos
 
-    request_credentials = requests.post(url= f'{BACKEND}/Stimulus/getApiCredentials' ,data=data, headers=headers)
-    api_credentials = request_credentials.json()
-    print(api_credentials)
+    Argumentos:
+    cuentas -- un arreglo de cuentas a seleccionar, debe ser un array.
+    type -- tipo de archivo 0 es imagen, 1 es video, debe ser int.
+    duration -- duración de los videos, debe ser int.
+    """
+    mayores_uno = [cuenta for cuenta in cuentas if cuenta["creditosRestantes"] > 1]
 
-    return ApiCredential(clave=api_credentials['clave'], url=api_credentials['url'])
+    if mayores_uno:
+        cuentas_validas = []
+        for cuenta in cuentas:
+            if type == 0: # imagen
+                # Se ve que sea mayor a 1 el crédito ya que 1 es lo que consume una imágen
+                if cuenta["creditosRestantes"] > 1:
+                    cuentas_validas.append(cuenta)
+                
+            else: # video 10 segundos = 1 credito
+                total_creditos_videos = math.ceil(int(duration) / 10)
+                if cuenta["creditosRestates"] > total_creditos_videos:
+                    cuentas_validas.append(cuenta)
+                    
+        if cuentas_validas:
+            return min(cuentas_validas, key=lambda x: x["creditosRestantes"])
+        else:
+            return "NingunaEspecifica"
+    else:
+        return "Ninguno"
+
+
+# type = 0 => imagen, type = 1 => video
+def get_api_credentials(api, token, check, type = 0, cache = None, duration = 1, account = None) -> ApiCredential:
+    """
+    Esta función permite obtener las credenciales de las apis y hacer un proceso de seleccion para las multiples
+    cuentas de Feng (por el momento).
+
+    retorna un objeto ApiCredential("clave", "url", "cuenta").
+    También si falla retorna "Ninguna" o "NingunaEspecifica" para cuando ya no hay creditos
+
+    Argumentos:
+    api -- Id del api de quien se quieren las credenciales, Debe ser un numero
+    token -- Clave del usuario para enviar peticiones al backend, Debe ser un string
+    check -- Para poder indicar si se debe chequear el conteo de créditos de Feng o no, debe ser un booleano.
+    type -- Indica el tipo de archivo dónde 0 es imagen y 1 es video, debe ser int.
+    cache -- Referencia hacia el objeto de la clase cache_model el cuál es un cache con tiempo de expiración, debe ser un objeto de cache_model
+    duration -- Duración del video en segundos, debe ser un int.
+    account -- cuenta a la que se subió el video, solo aplicable a videos y sirve para ir a traer la cuenta en la que se subió el análisis
+    """
+    print("cache =>>", cache)
+    if check:
+        if not cache:
+            print("=============entre a no cache ===========")
+            data = {'api': api}
+            headers = {'Authorization': f'Bearer {token}'}
+            # headers = {'Authorization': f'{token}'}
+
+            request_credentials = requests.post(url= f'{BACKEND}/Stimulus/getApiCredentials' ,data=data, headers=headers)
+            api_credentials = request_credentials.json()
+            print(api_credentials)
+
+            jsonrpc = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "GetAccountCredits"
+            }
+
+           
+            cuentas = []
+            for cuenta in api_credentials:
+                clave = cuenta['clave']
+                headers = {'Authorization': f'Basic {clave}'}
+                r = requests.post(url=cuenta['url'], json=jsonrpc, headers=headers)
+                r = r.json()
+                cuentas.append({"cuenta": r["result"]["credits"][0]["userName"], "clave": clave, "url": cuenta['url'], "creditosRestantes": r["result"]["remainCredit"]})
+            
+             # ------------------------- para pruebas ------------------------------------
+            #cuentas.append({'cuenta': 'erick.moreno.troiatec.com', 'clave': 'ZXJpY2subW9yZW5vLnRyb2lhdGVjLmNvbTpUcm9pYXRlYzIwMjM=', 'url': ' https://service.feng-gui.com/json/api.ashx', 'creditosRestantes': 1})
+            #cuentas.append({'cuenta': 'juan.roberto.troiatec.com', 'clave': 'ZXJpY2subW9yZW5vLnRyb2lhdGVjLmNvbTpUcm9pYXRlYzIwMjM=', 'url': ' https://service.feng-gui.com/json/api.ashx', 'creditosRestantes': 1})
+
+            # -------------------------- para pruebas -----------------------------------
+
+            cuenta_seleccionada = ""
+
+            if type == 0:
+                cuenta_seleccionada = seleccionar_cuenta(cuentas, 0)
+            else:
+                cuenta_seleccionada = seleccionar_cuenta(cuentas, 1, duration)
+            
+            if cuenta_seleccionada == "Ninguno":
+                # Avisar que ya no hay créditos
+                return "Ninguno"
+            elif cuenta_seleccionada == "NingunaEspecifica":
+                # Avisar que ya no hay créditos para procesar dicho analisis en ninguna cuenta
+                return "NingunaEspecifica"
+                
+            #cache = cuentas
+            cache_manager.set_data_to_cache(cuentas)
+            #print("cachecito =>" , cache)
+            return ApiCredential(clave=cuenta_seleccionada['clave'], url=cuenta_seleccionada['url'], name=cuenta_seleccionada['cuenta'])
+        else:
+            print("=============entre a SII cache ===========")
+            if type == 0:
+                cuenta_seleccionada = seleccionar_cuenta(cache["uno"], 0)
+            else:
+                cuenta_seleccionada = seleccionar_cuenta(cache["uno"], 1, duration)
+            
+            if cuenta_seleccionada == "Ninguno":
+                # Avisar que ya no hay créditos
+                return "Ninguno"
+            elif cuenta_seleccionada == "NingunaEspecifica":
+                # Avisar que ya no hay créditos para procesar dicho analisis en ninguna cuenta
+                return "NingunaEspecifica"
+        
+            return ApiCredential(clave=cuenta_seleccionada['clave'], url=cuenta_seleccionada['url'], name=cuenta_seleccionada['cuenta'])
+    else: 
+        # Este else no va a buscar explicitamente al cache si es imágenes sirve para otras apis que no tengan multicuentas
+        # Mientras que también funciona para solo obtener la cuenta seleccionada anteriormente en los videos.
+        if type == 1: #videos
+            if not cache:
+                data = {'api': api}
+                headers = {'Authorization': f'Bearer {token}'}
+                # headers = {'Authorization': f'{token}'}
+
+                request_credentials = requests.post(url= f'{BACKEND}/Stimulus/getApiCredentials' ,data=data, headers=headers)
+                api_credentials = request_credentials.json()
+                print(api_credentials)
+
+                jsonrpc = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "GetAccountCredits"
+                }
+
+                cuentas = []
+                cuenta_seleccionada = []
+                for cuenta in api_credentials:
+                    clave = cuenta['clave']
+                    headers = {'Authorization': f'Basic {clave}'}
+                    r = requests.post(url=cuenta['url'], json=jsonrpc, headers=headers)
+                    r = r.json()
+                    cuentas.append({"cuenta": r["result"]["credits"][0]["userName"], "clave": clave, "url": cuenta['url'], "creditosRestantes": r["result"]["remainCredit"]})
+                    if r["result"]["credits"][0]["userName"] == account:
+                        cuenta_seleccionada.append({"cuenta": r["result"]["credits"][0]["userName"], "clave": clave, "url": cuenta['url']})
+
+                cache_manager.set_data_to_cache(cuentas)
+
+                return ApiCredential(clave=cuenta_seleccionada[0]['clave'], url=cuenta_seleccionada[0]['url'], name=cuenta_seleccionada[0]['cuenta'])
+            else:
+                for cuenta in cache["uno"]:
+                    if cuenta["cuenta"] == account:
+                        return ApiCredential(clave=cuenta['clave'], url=cuenta['url'], name=cuenta["cuenta"])
+                return None
+        else:    
+            data = {'api': api}
+            headers = {'Authorization': f'Bearer {token}'}
+            # headers = {'Authorization': f'{token}'}
+
+            request_credentials = requests.post(url= f'{BACKEND}/Stimulus/getApiCredentials' ,data=data, headers=headers)
+            api_credentials = request_credentials.json()
+            api_credentials = api_credentials[0]
+            print(api_credentials)
+
+            return ApiCredential(clave=api_credentials['clave'], url=api_credentials['url'], name="none") 
+
+    #return ApiCredential(clave=api_credentials['clave'], url=api_credentials['url'])
 
 def get_analyzer(api, getStimulus, idstimulus, token):
     '''
