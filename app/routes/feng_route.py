@@ -145,7 +145,7 @@ def data(arequest: RedisReq):
 
     if (csv == "Successful" and vids == "Successful"):
          # al ser exitoso debemos restar los créditos de la cuenta seleccionada
-        total_creditos_videos = math.ceil(arequest.Duration / 10)
+        total_creditos_videos = math.ceil(int(arequest.Duration) / 10)
         cache_manager.extract_credits(credentials.name, total_creditos_videos)
 
         connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
