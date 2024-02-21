@@ -42,7 +42,7 @@ def seleccionar_cuenta(cuentas, type, duration = 1):
                 
             else: # video 10 segundos = 1 credito
                 total_creditos_videos = math.ceil(int(duration) / 10)
-                if cuenta["creditosRestates"] > total_creditos_videos:
+                if cuenta["creditosRestantes"] > total_creditos_videos:
                     cuentas_validas.append(cuenta)
                     
         if cuentas_validas:
