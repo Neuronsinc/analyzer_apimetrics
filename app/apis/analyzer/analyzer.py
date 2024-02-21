@@ -73,7 +73,7 @@ def get_api_credentials(api, token, check, type = 0, cache = None, duration = 1,
     """
     print("cache =>>", cache)
     if check:
-        if not cache:
+        if cache is None:
             print("=============entre a no cache ===========")
             data = {'api': api}
             headers = {'Authorization': f'Bearer {token}'}
@@ -125,10 +125,11 @@ def get_api_credentials(api, token, check, type = 0, cache = None, duration = 1,
         else:
             print("=============entre a SII cache ===========")
             if type == 0:
-                cuenta_seleccionada = seleccionar_cuenta(cache["uno"], 0)
+                #cuenta_seleccionada = seleccionar_cuenta(cache["uno"], 0)
+                cuenta_seleccionada = seleccionar_cuenta(cache, 0)
             else:
-                cuenta_seleccionada = seleccionar_cuenta(cache["uno"], 1, duration)
-            
+                #cuenta_seleccionada = seleccionar_cuenta(cache["uno"], 1, duration)
+                cuenta_seleccionada = seleccionar_cuenta(cache, 1, duration)
             if cuenta_seleccionada == "Ninguno":
                 # Avisar que ya no hay créditos
                 return "Ninguno"
@@ -141,7 +142,7 @@ def get_api_credentials(api, token, check, type = 0, cache = None, duration = 1,
         # Este else no va a buscar explicitamente al cache si es imágenes sirve para otras apis que no tengan multicuentas
         # Mientras que también funciona para solo obtener la cuenta seleccionada anteriormente en los videos.
         if type == 1: #videos
-            if not cache:
+            if cache is None:
                 data = {'api': api}
                 headers = {'Authorization': f'Bearer {token}'}
                 # headers = {'Authorization': f'{token}'}
@@ -171,7 +172,7 @@ def get_api_credentials(api, token, check, type = 0, cache = None, duration = 1,
 
                 return ApiCredential(clave=cuenta_seleccionada[0]['clave'], url=cuenta_seleccionada[0]['url'], name=cuenta_seleccionada[0]['cuenta'])
             else:
-                for cuenta in cache["uno"]:
+                for cuenta in cache:
                     if cuenta["cuenta"] == account:
                         return ApiCredential(clave=cuenta['clave'], url=cuenta['url'], name=cuenta["cuenta"])
                 return None
