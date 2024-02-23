@@ -9,6 +9,7 @@ import re
 import hashlib
 from PIL import Image, ExifTags
 from io import BytesIO
+from fastapi.responses import JSONResponse
 
 
 router = APIRouter()
@@ -90,13 +91,18 @@ def data(t: Request, file: UploadFile = File(...), id_folder: str = Form()):
         headers = {'Authorization': token}
 
         r = requests.post(url=f'{BACKEND}/Stimulus/UploadStimulus', files=ff ,data=data, headers=headers)
+        status_c = r.status_code
         jsonResponse = r.json()
         fo.close()
 
-        if ("msgError" not in str(jsonResponse)):
+        if (status_c == 200):
             # remove(RootPath + fileName)
             remove(fileName)
             return {"idStimulus": str(jsonResponse)}
+        else:
+            remove(fileName)
+            return JSONResponse(content="Error uploading the file", status_code=status_c)
+
         
     except Exception as ex:
         print(ex)
