@@ -106,6 +106,14 @@ def data(arequest: VRequest):
     data = analyzeVids(stimulus, arequest.analyzer_token, credentials)
 
     if data["message"] == "success":
+        # al ser exitoso debemos restar los créditos de la cuenta seleccionada
+        total_creditos_videos = math.floor(int(arequest.Duration) / 10)
+
+        if total_creditos_videos == 0:
+            total_creditos_videos = 1
+
+        cache_manager.extract_credits(credentials.name, total_creditos_videos)
+        
         connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
         # Objeto Python a  almacenar en Redis
         mi_objeto = {
@@ -144,14 +152,6 @@ def data(arequest: RedisReq):
     vids = getAndSaveVids(stimulus, arequest.token, credentials, arequest.videoID)
 
     if (csv == "Successful" and vids == "Successful"):
-         # al ser exitoso debemos restar los créditos de la cuenta seleccionada
-        total_creditos_videos = math.floor(int(arequest.Duration) / 10)
-
-        if total_creditos_videos == 0:
-            total_creditos_videos = 1
-
-        cache_manager.extract_credits(credentials.name, total_creditos_videos)
-
         connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
 
         mi_objeto = {
