@@ -74,10 +74,14 @@ def analyze_from_predict(arequest: ARequest):
     model = model_manager.get_model_instance()
     try:
         response = analyze(stimulus, float(arequest.clarity), arequest.analyzer_token, credentials, model)
-        # al ser exitoso debemos restar los créditos de la cuenta seleccionada
-        cache_manager.extract_credits(credentials.name, 1)
 
-        handleStatus(arequest.id_stimulus, 2, arequest.analyzer_token)
+        if "Successful" in response:
+            # al ser exitoso debemos restar los créditos de la cuenta seleccionada
+            cache_manager.extract_credits(credentials.name, 1)
+            handleStatus(arequest.id_stimulus, 2, arequest.analyzer_token)
+        else:
+            handleStatus(arequest.id_stimulus, 3, arequest.analyzer_token) # fallo
+            return JSONResponse(content="failed", status_code=500)
     except:
         handleStatus(arequest.id_stimulus, 3, arequest.analyzer_token) # fallo
         return JSONResponse(content="failed", status_code=500)
@@ -113,7 +117,7 @@ def data(arequest: VRequest):
             total_creditos_videos = 1
 
         cache_manager.extract_credits(credentials.name, total_creditos_videos)
-        
+
         connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
         # Objeto Python a  almacenar en Redis
         mi_objeto = {
