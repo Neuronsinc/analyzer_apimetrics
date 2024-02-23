@@ -50,7 +50,7 @@ def seleccionar_cuenta(cuentas, type, duration = 1):
                     cuentas_validas.append(cuenta)
                     
         if cuentas_validas:
-            return min(cuentas_validas, key=lambda x: x["creditosRestantes"])
+            return max(cuentas_validas, key=lambda x: x["creditosRestantes"])
         else:
             return "NingunaEspecifica"
     else:
