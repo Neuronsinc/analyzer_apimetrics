@@ -13,6 +13,7 @@ from sklearn.utils.extmath import safe_sparse_dot
 from app.model.analyzer_model import Stimulus
 from app.model.analyzer_model import ApiCredential
 from app.model.api_model import Apis
+from app.model.cache_model import cache_manager
 
 from app.apis.s3.s3manager import S3Manager
 
@@ -123,6 +124,9 @@ def analyze(stimulus: Stimulus, clarity: float, token: str, credentials:ApiCrede
     print(FengResponse['result'])
 
     if ("result" in FengResponse):
+        # al ser exitoso debemos restar los créditos de la cuenta seleccionada
+        cache_manager.extract_credits(credentials.name, 1)
+
         #size = 0
         mapsArr = ['gazeplot', 'aoi', 'heatmap', 'opacity']
         namesMap = {}

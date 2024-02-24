@@ -76,8 +76,6 @@ def analyze_from_predict(arequest: ARequest):
         response = analyze(stimulus, float(arequest.clarity), arequest.analyzer_token, credentials, model)
 
         if "Successful" in response:
-            # al ser exitoso debemos restar los créditos de la cuenta seleccionada
-            cache_manager.extract_credits(credentials.name, 1)
             handleStatus(arequest.id_stimulus, 2, arequest.analyzer_token)
         else:
             handleStatus(arequest.id_stimulus, 3, arequest.analyzer_token) # fallo
