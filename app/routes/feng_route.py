@@ -81,6 +81,8 @@ def analyze_from_predict(arequest: ARequest):
             handleStatus(arequest.id_stimulus, 3, arequest.analyzer_token) # fallo
             return JSONResponse(content="failed", status_code=500)
     except:
+        # al fallar se debe insertar elemento denuevo a la cola
+        cache_manager.push_elements(json.dumps({"cuenta": credentials.name, "clave": credentials.clave, "url": credentials.url}), False)
         handleStatus(arequest.id_stimulus, 3, arequest.analyzer_token) # fallo
         return JSONResponse(content="failed", status_code=500)
 
@@ -109,12 +111,12 @@ def data(arequest: VRequest):
 
     if data["message"] == "success":
         # al ser exitoso debemos restar los créditos de la cuenta seleccionada
-        total_creditos_videos = math.floor(int(arequest.Duration) / 10)
+        # total_creditos_videos = math.floor(int(arequest.Duration) / 10)
 
-        if total_creditos_videos == 0:
-            total_creditos_videos = 1
+        # if total_creditos_videos == 0:
+        #     total_creditos_videos = 1
 
-        cache_manager.extract_credits(credentials.name, total_creditos_videos)
+        # cache_manager.extract_credits(credentials.name, total_creditos_videos)
 
         connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
         # Objeto Python a  almacenar en Redis
@@ -141,6 +143,14 @@ def data(arequest: VRequest):
         return JSONResponse(content=data["result"], status_code=200)
     
     handleStatus(arequest.id_stimulus, 3, arequest.analyzer_token)
+    #al fallar insertar
+    # al fallar se debe insertar elemento denuevo a la cola
+    total_creditos_videos = math.floor(int(arequest.Duration) / 10)
+    if total_creditos_videos == 0:
+        total_creditos_videos = 1
+        
+    creditos = [{"cuenta": credentials.name, "clave": credentials.clave, "url": credentials.url} for i in range(total_creditos_videos)]
+    cache_manager.push_elements(json.dumps(creditos), False)
     return JSONResponse(content=data["result"], status_code=500)
 
 

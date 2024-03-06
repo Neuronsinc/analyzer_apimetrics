@@ -1,6 +1,7 @@
 import requests
 import os
 import math
+import json
 from pydantic import BaseModel
 
 from app.model.analyzer_model import Stimulus
@@ -18,7 +19,7 @@ BACKEND = 'https://analyzerapi.troiatec.com'
 #BACKEND = 'http://localhost/Analyzer/Predict_Analyzer_Back/'
 # BACKEND = os.getenv('BACKEND')
 
-def seleccionar_cuenta(cuentas, type, duration = 1):
+def seleccionar_cuenta(cache, type, duration = 1):
     """
     Esta función permite realizar la seleccion de que cuenta de Feng será posible subir el archivo a ser analizado.
 
@@ -30,29 +31,49 @@ def seleccionar_cuenta(cuentas, type, duration = 1):
     type -- tipo de archivo 0 es imagen, 1 es video, debe ser int.
     duration -- duración de los videos, debe ser int.
     """
-    mayores_uno = [cuenta for cuenta in cuentas if cuenta["creditosRestantes"] > 1]
+    # mayores_uno = [cuenta for cuenta in cuentas if cuenta["creditosRestantes"] > 1]
 
-    if mayores_uno:
-        cuentas_validas = []
-        for cuenta in cuentas:
-            if type == 0: # imagen
-                # Se ve que sea mayor a 1 el crédito ya que 1 es lo que consume una imágen
-                if cuenta["creditosRestantes"] > 1:
-                    cuentas_validas.append(cuenta)
+    # if mayores_uno:
+    #     cuentas_validas = []
+    #     for cuenta in cuentas:
+    #         if type == 0: # imagen
+    #             # Se ve que sea mayor a 1 el crédito ya que 1 es lo que consume una imágen
+    #             if cuenta["creditosRestantes"] > 1:
+    #                 cuentas_validas.append(cuenta)
                 
-            else: # video 10 segundos = 1 credito, no toman en cuenta los decimales es decir 18 segundos = 1 credito
-                total_creditos_videos = math.floor(int(duration) / 10)
+    #         else: # video 10 segundos = 1 credito, no toman en cuenta los decimales es decir 18 segundos = 1 credito
+    #             total_creditos_videos = math.floor(int(duration) / 10)
                 
-                if total_creditos_videos == 0:
-                    total_creditos_videos = 1
+    #             if total_creditos_videos == 0:
+    #                 total_creditos_videos = 1
 
-                if cuenta["creditosRestantes"] > total_creditos_videos:
-                    cuentas_validas.append(cuenta)
+    #             if cuenta["creditosRestantes"] > total_creditos_videos:
+    #                 cuentas_validas.append(cuenta)
                     
-        if cuentas_validas:
-            return max(cuentas_validas, key=lambda x: x["creditosRestantes"])
-        else:
-            return "NingunaEspecifica"
+    #     if cuentas_validas:
+    #         return max(cuentas_validas, key=lambda x: x["creditosRestantes"])
+    #     else:
+    #         return "NingunaEspecifica"
+    # else:
+    #     return "Ninguno"
+    if cache.largo_cola() > 0:
+        if type == 0: # imagen
+            elemento = cache.pop_elements()
+            if elemento is not None:
+                return elemento
+            else:
+                return "NingunaEspecifica"
+        else: # video
+            total_creditos_videos = math.floor(int(duration) / 10)
+            if total_creditos_videos == 0:
+                total_creditos_videos = 1
+
+            elemento = cache.creditos_videos(total_creditos_videos)
+
+            if elemento is not None:
+                return elemento
+            else:
+                return "NingunaEspecifica"
     else:
         return "Ninguno"
 
@@ -100,7 +121,13 @@ def get_api_credentials(api, token, check, type = 0, cache = None, duration = 1,
                 headers = {'Authorization': f'Basic {clave}'}
                 r = requests.post(url=cuenta['url'], json=jsonrpc, headers=headers)
                 r = r.json()
-                cuentas.append({"cuenta": r["result"]["credits"][0]["userName"], "clave": clave, "url": cuenta['url'], "creditosRestantes": r["result"]["remainCredit"]})
+                #cuentas.append({"cuenta": r["result"]["credits"][0]["userName"], "clave": clave, "url": cuenta['url'], "creditosRestantes": r["result"]["remainCredit"]})
+                for i in range(int(r["result"]["remainCredit"])):
+                    obj = {"cuenta": r["result"]["credits"][0]["userName"], "clave": clave, "url": cuenta['url']}
+                    cuentas.append(json.dumps(obj))
+            
+
+            cache_manager.push_elements(cuentas, True)
             
              # ------------------------- para pruebas ------------------------------------
             #cuentas.append({'cuenta': 'erick.moreno.troiatec.com', 'clave': 'ZXJpY2subW9yZW5vLnRyb2lhdGVjLmNvbTpUcm9pYXRlYzIwMjM=', 'url': ' https://service.feng-gui.com/json/api.ashx', 'creditosRestantes': 1})
@@ -111,9 +138,9 @@ def get_api_credentials(api, token, check, type = 0, cache = None, duration = 1,
             cuenta_seleccionada = ""
 
             if type == 0:
-                cuenta_seleccionada = seleccionar_cuenta(cuentas, 0)
+                cuenta_seleccionada = seleccionar_cuenta(cache, 0)
             else:
-                cuenta_seleccionada = seleccionar_cuenta(cuentas, 1, duration)
+                cuenta_seleccionada = seleccionar_cuenta(cache, 1 ,duration)
             
             if cuenta_seleccionada == "Ninguno":
                 # Avisar que ya no hay créditos
@@ -123,7 +150,7 @@ def get_api_credentials(api, token, check, type = 0, cache = None, duration = 1,
                 return "NingunaEspecifica"
                 
             #cache = cuentas
-            cache_manager.set_data_to_cache(cuentas)
+            #cache_manager.set_data_to_cache(cuentas)
             #print("cachecito =>" , cache)
             return ApiCredential(clave=cuenta_seleccionada['clave'], url=cuenta_seleccionada['url'], name=cuenta_seleccionada['cuenta'])
         else:
