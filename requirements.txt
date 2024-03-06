@@ -43,3 +43,6 @@ async-timeout==4.0.2
 Pillow==9.3.0
 cachetools==5.3.1
 scikit-learn==1.4.0
+scikit-image==0.22.0
+opencv-python==4.8.0.76
+joblib==1.2.0

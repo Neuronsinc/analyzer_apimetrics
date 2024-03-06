@@ -6,6 +6,7 @@ from typing import List
 import shutil
 from app.apis.attention.attention import analyze
 from app.apis.attention.attention import get_dataset
+from app.model.clarity_model import model_manager
 
 from app.apis.feng.feng import handleStatus
 
@@ -41,6 +42,26 @@ def analyze_from_predict(arequest: ARequest):
     try:
         response = analyze(stimulus, arequest.analyzer_token, credentials, settings)
         handleStatus(arequest.id_stimulus, 1, arequest.analyzer_token)
+    except:
+        handleStatus(arequest.id_stimulus, 3, arequest.analyzer_token)
+        return JSONResponse(content="failed", status_code=500)
+
+    return JSONResponse(content=response, status_code=200)
+
+
+@router.post("/Attention/analyze2")
+def analyze_from_predict(arequest: ARequest):
+    # feng.analyze_file()
+    stimulus = get_stimulus(arequest.id_stimulus, arequest.analyzer_token)
+    
+    response = ""
+    try:
+        clarity = model_manager.get_prediction(stimulus.image_url)
+        if clarity is not None:
+            response = {"clarity": str(clarity)}
+            handleStatus(arequest.id_stimulus, 1, arequest.analyzer_token)
+        else:
+            raise Exception
     except:
         handleStatus(arequest.id_stimulus, 3, arequest.analyzer_token)
         return JSONResponse(content="failed", status_code=500)

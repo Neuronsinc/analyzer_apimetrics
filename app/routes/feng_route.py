@@ -71,9 +71,10 @@ def analyze_from_predict(arequest: ARequest):
 
     # studySettings = {"study_name": getS["title"], "study_type": "general", "content_type": "general", 'tasks[0]': 'focus', 'tasks[1]': 'clarity_score'}
     response = ""
-    model = model_manager.get_model_instance()
+    #model = model_manager.get_model_instance()
+    #scaler = model_manager.scaler()
     try:
-        response = analyze(stimulus, float(arequest.clarity), arequest.analyzer_token, credentials, model)
+        response = analyze(stimulus, float(arequest.clarity), arequest.analyzer_token, credentials, model_manager)
 
         if "Successful" in response:
             handleStatus(arequest.id_stimulus, 2, arequest.analyzer_token)
