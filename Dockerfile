@@ -16,7 +16,7 @@ RUN apt update
 RUN apt update
 # RUN apt install -y chromium-browser chromium-chromedriver  make automake gcc g++ 
 # RUN apt install -y chromium-chromedriver make automake gcc g++ 
-# RUN apt install -y make automake gcc g++ 
+RUN apt install -y make automake gcc g++ libgl1
 
 # RUN snap install chromium
 # RUN snap install chromium

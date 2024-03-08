@@ -12,14 +12,12 @@ from app.apis.avisos.avisos import AvisoSoporte
 
 from app.apis.analyzer.analyzer import get_api_credentials
 from app.apis.analyzer.analyzer import get_stimulus
-from keras.models import load_model
 
 from app.model.api_model import ARequest
 from app.model.api_model import Apis
 from app.model.feng_vids_model import VRequest, RedisReq
 
 from app.model.cache_model import cache_manager
-from app.model.clarity_model import model_manager
 
 # from app.model.attention_model import StudySettings
 import redis
@@ -74,7 +72,7 @@ def analyze_from_predict(arequest: ARequest):
     #model = model_manager.get_model_instance()
     #scaler = model_manager.scaler()
     try:
-        response = analyze(stimulus, float(arequest.clarity), arequest.analyzer_token, credentials, model_manager)
+        response = analyze(stimulus, float(arequest.clarity), arequest.analyzer_token, credentials)
 
         if "Successful" in response:
             handleStatus(arequest.id_stimulus, 2, arequest.analyzer_token)

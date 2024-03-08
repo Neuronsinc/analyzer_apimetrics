@@ -101,7 +101,7 @@ def get_dataset(set: str,credentials, max:int=100):
 
 
 # def analyze_file(api:str , getStimulus, idStimulus, token, userCreation = None):
-def analyze(stimulus: Stimulus, clarity: float, token: str, credentials:ApiCredential, model, userCreation = None):
+def analyze(stimulus: Stimulus, clarity: float, token: str, credentials:ApiCredential, userCreation = None):
     print('analizando feng')
     jsonrpc = {
         "jsonrpc": "2.0",
@@ -201,18 +201,22 @@ def analyze(stimulus: Stimulus, clarity: float, token: str, credentials:ApiCrede
         jsonResponse = r.json()
 
         print(jsonResponse)
-
-        if (str(jsonResponse) == "successful"):
-            for ar in archivos_enviar.values():
-                ar.close()
+        # cerrar los archivos no debe estar condicionado a si es exitoso, siempre debe hacerse
+        #if (str(jsonResponse) == "successful"):
+        for ar in archivos_enviar.values():
+            ar.close()
+            os.remove(ar.name)
             # fgaze.close()
             # faoi.close()
             # fopacity.close()
             # fheatmap.close()
-            remove(namesMap["gazeplot"])
-            remove(namesMap["aoi"])
-            remove(namesMap["opacity"])
-            remove(namesMap["heatmap"])
+        # remove(namesMap["gazeplot"])
+        # remove(namesMap["aoi"])
+        # remove(namesMap["opacity"])
+        # remove(namesMap["heatmap"])
+            
+        #for mapa in namesMap.values():
+            #os.remove(mapa)
 
             
         #Guardar los scores
