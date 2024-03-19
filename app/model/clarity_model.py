@@ -7,6 +7,8 @@ import requests
 from io import BytesIO
 import gc
 from skimage.feature import graycomatrix, graycoprops
+import keras.backend as K
+
 
 
 class ModelManager:
@@ -117,6 +119,8 @@ class ModelManager:
 
             del df_norm, norm_carac, res
             gc.collect()
+    
+            K.clear_session()
 
             return prediccion
         
