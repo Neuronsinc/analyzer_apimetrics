@@ -8,6 +8,8 @@ from io import BytesIO
 import gc
 from skimage.feature import graycomatrix, graycoprops
 import keras.backend as K
+import tracemalloc
+import sys
 
 
 
@@ -23,16 +25,11 @@ class ModelManager:
             cls._instance.column_names = ["max_laplace", "contraste", "max_fourier", "desviacion_fourier", "textura", "numCarac", "colorfulness", "brightness"]
         return cls._instance
       
-    # def __init__(self):
-    #     self.model = load_model('app/keras_models/modelo_6.keras')
-    #     self.scaler = joblib.load('app/keras_models/scaler_m6.pkl')
-    
     def get_model_instance(self):
         return self.model
     
     def get_scaler_instance(self):
         return self.scaler
-    
 
     def extraer_carac(self, imagen):
         # max laplace
@@ -98,16 +95,20 @@ class ModelManager:
         return [max_val_laplace, contraste, max_val_fourier, std_dev, textura, num_caracteristicas, colorfulness, brightness]
     
     def get_prediction(self, img_route):
+        self.model = load_model('app/keras_models/modelo_6.keras')
+        self.scaler = joblib.load('app/keras_models/scaler_m6.pkl')
+        tracemalloc.start()
+        
         res = requests.get(img_route)
 
         if res.status_code == 200:
             image_bytes = BytesIO(res.content)
-
             img = cv2.imdecode(np.frombuffer(image_bytes.read(), np.uint8), cv2.IMREAD_COLOR)
-
             carac = self.extraer_carac(img)
 
+            del image_bytes
             del img
+            del res
             gc.collect()
 
             cv2.destroyAllWindows()
@@ -117,10 +118,21 @@ class ModelManager:
 
             prediccion = self.model.predict([norm_carac])[0][0]
 
-            del df_norm, norm_carac, res
+            del df_norm
+            del norm_carac
+            del carac
             gc.collect()
     
             K.clear_session()
+
+            snapshot = tracemalloc.take_snapshot()
+            top_stats = snapshot.statistics('lineno')
+
+            print('----top 10 memalloc----')
+            print(sys.getsizeof(self.model))
+            for s in top_stats[:10]:
+                print(s)
+            print('-----------------------')
 
             return prediccion
         
@@ -133,6 +145,8 @@ def get_model_manager():
         get_model_manager._instance = ModelManager()
 
     return get_model_manager._instance
+
+
 
 # Singleton pattern para garantizar una sola instancia del modelo
 #model_manager = get_model_manager()

@@ -1,8 +1,6 @@
 from fastapi import APIRouter, File, UploadFile
 from fastapi.responses import JSONResponse
 from typing import List
-# from app.apis.predict.predict import analyze_file
-# from app.apis.predict.predict import download_file
 
 import shutil
 from app.apis.feng.feng import analyze
@@ -18,8 +16,8 @@ from app.model.api_model import Apis
 from app.model.feng_vids_model import VRequest, RedisReq
 
 from app.model.cache_model import cache_manager
+from app.model.clarity_model import model_manager
 
-# from app.model.attention_model import StudySettings
 import redis
 import json
 import math
@@ -33,9 +31,12 @@ REDISPORT=14737
 REDISUSERNAME = 'default'
 REDISPASSWORD = 'sBiMwZAb2w1jmwGDIMmi7kx941ArAGXQ'
 
+#https://analyzerbotv2.troiatec.com
 @router.post("/Attention/file/analyze")
 async def analyze_file(file: UploadFile):
     # feng.analyze_file()
+    x = model_manager.get_prediction('https://static.wikia.nocookie.net/zombie-100/images/c/cb/Anime_Character_Design_Shizuka_Mikazuki.png')
+    print(x)
     print("mierda")
     return "otra mierda"
     
