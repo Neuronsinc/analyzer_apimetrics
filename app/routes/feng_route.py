@@ -16,11 +16,12 @@ from app.model.api_model import Apis
 from app.model.feng_vids_model import VRequest, RedisReq
 
 from app.model.cache_model import cache_manager
-from app.model.clarity_model import model_manager
+
+from app.model.clarity_model import clarity_model_manager
+import math
 
 import redis
 import json
-import math
 
 router = APIRouter()
 
@@ -32,14 +33,8 @@ REDISUSERNAME = 'default'
 REDISPASSWORD = 'sBiMwZAb2w1jmwGDIMmi7kx941ArAGXQ'
 
 #https://analyzerbotv2.troiatec.com
-@router.post("/Attention/file/analyze")
-async def analyze_file(file: UploadFile):
-    # feng.analyze_file()
-    x = model_manager.get_prediction('https://static.wikia.nocookie.net/zombie-100/images/c/cb/Anime_Character_Design_Shizuka_Mikazuki.png')
-    print(x)
-    print("mierda")
-    return "otra mierda"
-    
+
+
 @router.post("/Feng/Dataset/")
 async def analyze_file(arequest: ARequest):
     # feng.analyze_file()
@@ -47,8 +42,6 @@ async def analyze_file(arequest: ARequest):
     get_dataset(arequest.id_stimulus, credentials=credentials, max=10)
     
     return "fff"
-
-
 
 
 @router.post("/Feng/analyze")
@@ -90,6 +83,7 @@ def analyze_from_predict(arequest: ARequest):
 
 @router.post('/Feng/analyze/vids')
 def data(arequest: VRequest):
+
     cache = cache_manager.get_cache_instance()
     credentials = get_api_credentials(Apis.FENGUI.value, arequest.analyzer_token, True, 1, cache, arequest.Duration)
     stimulus = get_stimulus(arequest.id_stimulus, arequest.analyzer_token)

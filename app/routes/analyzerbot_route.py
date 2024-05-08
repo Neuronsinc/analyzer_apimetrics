@@ -92,6 +92,8 @@ def data(t: Request, file: UploadFile = File(...), id_folder: str = Form()):
 
         r = requests.post(url=f'{BACKEND}/Stimulus/UploadStimulus', files=ff ,data=data, headers=headers)
         status_c = r.status_code
+        print(r)
+        print(r.content)
         jsonResponse = r.json()
         fo.close()
 

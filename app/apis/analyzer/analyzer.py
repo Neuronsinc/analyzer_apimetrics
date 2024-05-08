@@ -246,6 +246,9 @@ def get_stimulus(stimulus_id: str, analyzer_token: str) -> Stimulus:
         headers = {'Authorization': f'Bearer {analyzer_token}'}
 
         response_stimulus = requests.post(url= f'{BACKEND}/Stimulus/getStimulusUrl',data=data, headers=headers)
+        print("contenido del getstimulusrul")
+        print(response_stimulus.content)
+
         stimulus_json = response_stimulus.json()
 
 

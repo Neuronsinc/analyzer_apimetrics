@@ -2,6 +2,7 @@ async-generator==1.10
 attrs==23.1.0
 certifi==2023.5.7
 exceptiongroup==1.1.1
+psutil==5.9.8
 h11==0.14.0
 idna==3.4
 iniconfig==2.0.0
@@ -46,3 +47,4 @@ scikit-learn==1.4.0
 scikit-image==0.22.0
 opencv-python==4.8.0.76
 joblib==1.2.0
+lightgbm>=4.3.0

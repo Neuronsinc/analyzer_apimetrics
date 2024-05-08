@@ -20,7 +20,6 @@ import requests
 
 
 BACKEND = 'https://analyzerapi.troiatec.com'
-#BACKEND = 'http://localhost/Analyzer/Predict_Analyzer_Back'
 client = pymongo.MongoClient('172.17.0.1:27017')
 
 def analyze(stimulus: Stimulus, token: str, credentials:ApiCredential, settings:StudySettings, userCreation = None):
@@ -238,9 +237,6 @@ def analyze(stimulus: Stimulus, token: str, credentials:ApiCredential, settings:
         return {"message": f"{jsonResponse}"}
     
     return "something gone wrong" #await "something gone wrong"
-
-
-
 
 
 def get_dataset(set: str, credentials, max:int=100):
