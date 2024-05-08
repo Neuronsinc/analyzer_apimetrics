@@ -9,3 +9,4 @@ __pycache__/
 *.jpeg
 .vscode
 .pytest_cache
+*.csv
