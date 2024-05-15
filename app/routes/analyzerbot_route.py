@@ -40,6 +40,7 @@ def comprimir_imagen(file):
 
 @router.post('/Analyzer/Stimulus')
 def data(t: Request, file: UploadFile = File(...), id_folder: str = Form(), id_father: str = Form()):
+# def data(t: Request, file: UploadFile = File(...), id_folder: str = Form()):
     token = t.headers.get('Authorization')
     print(f'id_folder {id_folder}')
 
@@ -85,7 +86,8 @@ def data(t: Request, file: UploadFile = File(...), id_folder: str = Form(), id_f
 
         if (status_c == 200):
             remove(fileName)
-            return {"idStimulus": str(jsonResponse), "idFolder": id_folder}
+            return {"idStimulus": str(jsonResponse), "idFolder": id_folder, "idFather": id_father}
+            # return {"idStimulus": str(jsonResponse), "idFolder": id_folder}
         else:
             remove(fileName)
             return JSONResponse(content="Error uploading the file", status_code=status_c)

@@ -23,6 +23,8 @@ import math
 import redis
 import json
 
+import cv2
+
 router = APIRouter()
 
 route_predict = 'app/image_cache'
@@ -85,8 +87,16 @@ def analyze_from_predict(arequest: ARequest):
 def data(arequest: VRequest):
 
     cache = cache_manager.get_cache_instance()
-    credentials = get_api_credentials(Apis.FENGUI.value, arequest.analyzer_token, True, 1, cache, arequest.Duration)
+
     stimulus = get_stimulus(arequest.id_stimulus, arequest.analyzer_token)
+    vcap = cv2.VideoCapture(stimulus.image_url)
+    duration = video.get(cv2.CAP_PROP_POS_MSEC)/1000
+    
+    print(f'duracion en milisegundos: {duration * 1000}')
+    print(f'duracion en segundos: {duration}')
+
+    # credentials = get_api_credentials(Apis.FENGUI.value, arequest.analyzer_token, True, 1, cache, arequest.Duration)
+    credentials = get_api_credentials(Apis.FENGUI.value, arequest.analyzer_token, True, 1, cache, duration=str(duration))
 
     if credentials == "Ninguno" or credentials == "NingunaEspecifica":
         mensaje = ""
@@ -151,15 +161,15 @@ def data(arequest: RedisReq):
         connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
 
         mi_objeto = {
-        'videoID': arequest.videoID, 
-        'idUser': arequest.idUser,
-        'idCompany': arequest.idCompany,
-        'idLicense': arequest.idLicense,
-        'idStimulus': arequest.idStimulus,
-        'token': arequest.token,
-        'idFolder': arequest.idFolder,
-        'StimulusName': arequest.StimulusName,
-        'FolderName': arequest.FolderName
+            'videoID': arequest.videoID, 
+            'idUser': arequest.idUser,
+            'idCompany': arequest.idCompany,
+            'idLicense': arequest.idLicense,
+            'idStimulus': arequest.idStimulus,
+            'token': arequest.token,
+            'idFolder': arequest.idFolder,
+            'StimulusName': arequest.StimulusName,
+            'FolderName': arequest.FolderName
         }
         handleStatus(mi_objeto["idStimulus"], 2, mi_objeto['token'])
         connection.lpush('Analizados', json.dumps(mi_objeto))
