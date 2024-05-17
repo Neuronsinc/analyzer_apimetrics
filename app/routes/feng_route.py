@@ -89,14 +89,19 @@ def data(arequest: VRequest):
     cache = cache_manager.get_cache_instance()
 
     stimulus = get_stimulus(arequest.id_stimulus, arequest.analyzer_token)
+    print(f'se va a sacar la duracion de: {stimulus.image_url}')
     vcap = cv2.VideoCapture(stimulus.image_url)
-    duration = video.get(cv2.CAP_PROP_POS_MSEC)/1000
+    fps = vcap.get(cv2.CAP_PROP_FPS)
+    totalNoFrames = vcap.get(cv2.CAP_PROP_FRAME_COUNT)
+    durationInSeconds = int(totalNoFrames // fps)
+
+    # duration = vcap.get(cv2.CAP_PROP_POS_MSEC)
     
-    print(f'duracion en milisegundos: {duration * 1000}')
-    print(f'duracion en segundos: {duration}')
+    print(f'duracion en segundos: {durationInSeconds}')
+    # print(f'duracion en segundos: {duration/1000}')
 
     # credentials = get_api_credentials(Apis.FENGUI.value, arequest.analyzer_token, True, 1, cache, arequest.Duration)
-    credentials = get_api_credentials(Apis.FENGUI.value, arequest.analyzer_token, True, 1, cache, duration=str(duration))
+    credentials = get_api_credentials(Apis.FENGUI.value, arequest.analyzer_token, True, 1, cache, duration=str(durationInSeconds))
 
     if credentials == "Ninguno" or credentials == "NingunaEspecifica":
         mensaje = ""
@@ -113,7 +118,7 @@ def data(arequest: VRequest):
 
     if data["message"] == "success":
         # al ser exitoso debemos restar los créditos de la cuenta seleccionada
-        total_creditos_videos = math.floor(int(arequest.Duration) / 10)
+        total_creditos_videos = math.floor(int(durationInSeconds) / 10)
 
         if total_creditos_videos == 0:
             total_creditos_videos = 1
@@ -133,7 +138,7 @@ def data(arequest: VRequest):
         'StimulusName': arequest.StimulusName,
         'FolderName': arequest.FolderName,
         'UploadedAccount': credentials.name,
-        'Duration': arequest.Duration
+        'Duration': str(durationInSeconds)
         }
 
         # Serializar el objeto como una cadena JSON
