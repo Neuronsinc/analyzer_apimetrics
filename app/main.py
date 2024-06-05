@@ -10,6 +10,7 @@ from app.routes import attention_route
 from app.routes import analyzerbot_route
 from app.routes import clarity_route
 from app.routes import engagement_route
+from app.routes import openai_route
 
 
 from app.model.clarity_model import clarity_model_manager
@@ -63,3 +64,4 @@ app.include_router(attention_route.router)
 app.include_router(analyzerbot_route.router)
 app.include_router(clarity_route.router)
 app.include_router(engagement_route.router)
+app.include_router(openai_route.router)

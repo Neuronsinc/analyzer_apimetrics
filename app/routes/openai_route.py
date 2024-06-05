@@ -1,0 +1,121 @@
+from app.model.recommendation_model import Recommendation, StimulusRecommendations
+from app.model.recommendation_request_model import RecommendationRequest
+from fastapi import FastAPI, HTTPException, APIRouter
+from openai import OpenAI, OpenAIError
+from dotenv import load_dotenv
+import os
+import json
+from pydantic import BaseModel, ValidationError
+from typing import List
+import pymongo
+
+load_dotenv("app\.env")
+
+router = APIRouter()
+pymongo_client = pymongo.MongoClient("localhost:27017")
+
+API_KEY = os.environ.get("OPENAI_KEY")
+ASSISTANT_ID = os.environ.get("ASSISTANT_ID")
+
+client = OpenAI(api_key=API_KEY)
+
+assistant = client.beta.assistants.retrieve(assistant_id=ASSISTANT_ID)
+
+@router.post("/recommendation/")
+async def generate_recommendations(stimulus: RecommendationRequest):
+    try:
+        recommendations_collection = pymongo_client.get_database("analyzer").get_collection("recommendations")
+
+        metricas = ", ".join(f"{d.name}: {d.score}" for d in stimulus.metrics)
+
+        thread = client.beta.threads.create()
+
+        client.beta.threads.messages.create(
+            thread_id=thread.id,
+            role="user",
+            content=[
+                {
+                    "type": "text",
+                    "text": f"imagen de {stimulus.benchmark} con metricas {metricas}",
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {"url": stimulus.image_url, "detail": "low"},
+                },
+            ],
+        )
+
+        run = client.beta.threads.runs.create_and_poll(
+            thread_id=thread.id, assistant_id=assistant.id
+        )
+
+        if run.status == 'completed':
+            messages = list(
+                client.beta.threads.messages.list(thread_id=thread.id, run_id=run.id)
+            )
+        
+            message_content = messages[0].content[0].text
+            response = json.loads(message_content.value)
+
+            recommendations = [Recommendation(**item) for item in response]
+            stimulus_recs = StimulusRecommendations(
+                stimulus_id=stimulus.stimulus_id,
+                folder_id=stimulus.folder_id,
+                recommendations=recommendations,
+                image_url=stimulus.image_url,
+                benchmark=stimulus.benchmark,
+            )
+
+            recommendations_collection.insert_one(
+                {
+                    "stimulus_id": stimulus.stimulus_id,
+                    "folder_id": stimulus.folder_id,
+                    "recommendations": [r.dict() for r in recommendations],
+                    "image_url": stimulus.image_url,
+                    "benchmark": stimulus.benchmark,
+                }
+            )
+
+            return stimulus_recs
+        elif run.status == 'failed':
+            if run.last_error.code == 'rate_limit_exceeded':
+                raise HTTPException(status_code=429, detail=f"Rate Limit Exceeded")
+
+    except OpenAIError as e:
+        raise HTTPException(status_code=500, detail=f"OpenAI Error: {e}")
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=f"Validation Error: {e.json()}")
+    
+
+
+@router.get("/recommendation/stimulus/{stimulus_id}")
+def get_recommendations_by_stimulus_id(stimulus_id: int):
+    try:
+        recommendations_collection = pymongo_client.get_database("analyzer").get_collection("recommendations")
+
+        result = recommendations_collection.find_one({"stimulus_id": stimulus_id})
+
+        if result:
+            recommendations = StimulusRecommendations(**result)
+            return recommendations
+        else:
+            raise HTTPException(status_code=404, detail="No se encontraron recomendaciones para este estimulo")
+
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=f"Validation Error: {e.json()}")
+
+@router.get("/recommendation/folder/{folder_id}")
+def get_recommendations_by_folder_id(folder_id: int):
+    try:
+        recommendations_collection = pymongo_client.get_database("analyzer").get_collection("recommendations")
+
+        count = recommendations_collection.count_documents({"folder_id": folder_id})
+        if count > 0:
+            result = recommendations_collection.find({"folder_id": folder_id})
+            recommendations = [StimulusRecommendations(**rec) for rec in result]
+            return recommendations
+        else:
+            raise HTTPException(status_code=404, detail="No se encontraron recomendaciones para esta carpeta")
+
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=f"Validation Error: {e.json()}")
