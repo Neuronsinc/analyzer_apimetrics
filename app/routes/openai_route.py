@@ -8,6 +8,7 @@ import json
 from pydantic import BaseModel, ValidationError
 from typing import List
 import pymongo
+from bson import ObjectId
 
 load_dotenv("app\.env")
 
@@ -21,10 +22,22 @@ client = OpenAI(api_key=API_KEY)
 
 assistant = client.beta.assistants.retrieve(assistant_id=ASSISTANT_ID)
 
+
 @router.post("/recommendation/")
 async def generate_recommendations(stimulus: RecommendationRequest):
     try:
         recommendations_collection = pymongo_client.get_database("analyzer").get_collection("recommendations")
+
+        inserted_recs = recommendations_collection.insert_one(
+            {
+                "stimulus_id": stimulus.stimulus_id,
+                "folder_id": stimulus.folder_id,
+                "recommendations": [],
+                "image_url": stimulus.image_url,
+                "benchmark": stimulus.benchmark,
+                "status": 3,
+            }
+        )
 
         metricas = ", ".join(f"{d.name}: {d.score}" for d in stimulus.metrics)
 
@@ -49,11 +62,11 @@ async def generate_recommendations(stimulus: RecommendationRequest):
             thread_id=thread.id, assistant_id=assistant.id
         )
 
-        if run.status == 'completed':
+        if run.status == "completed":
             messages = list(
                 client.beta.threads.messages.list(thread_id=thread.id, run_id=run.id)
             )
-        
+
             message_content = messages[0].content[0].text
             response = json.loads(message_content.value)
 
@@ -64,58 +77,109 @@ async def generate_recommendations(stimulus: RecommendationRequest):
                 recommendations=recommendations,
                 image_url=stimulus.image_url,
                 benchmark=stimulus.benchmark,
+                status=4,
             )
 
-            recommendations_collection.insert_one(
+            recommendations_collection.update_one(
+                {"_id": ObjectId(inserted_recs.inserted_id)},
                 {
-                    "stimulus_id": stimulus.stimulus_id,
-                    "folder_id": stimulus.folder_id,
-                    "recommendations": [r.dict() for r in recommendations],
-                    "image_url": stimulus.image_url,
-                    "benchmark": stimulus.benchmark,
-                }
+                    "$set": {
+                        "stimulus_id": stimulus.stimulus_id,
+                        "folder_id": stimulus.folder_id,
+                        "recommendations": [r.dict() for r in recommendations],
+                        "image_url": stimulus.image_url,
+                        "benchmark": stimulus.benchmark,
+                        "status": 4,
+                    }
+                },
             )
-
             return stimulus_recs
-        elif run.status == 'failed':
-            if run.last_error.code == 'rate_limit_exceeded':
-                raise HTTPException(status_code=429, detail=f"Rate Limit Exceeded")
+        elif run.status == "failed":
+            recommendations_collection.update_one(
+                {"_id": ObjectId(inserted_recs.inserted_id)},
+                {
+                    "$set": {
+                        "stimulus_id": stimulus.stimulus_id,
+                        "folder_id": stimulus.folder_id,
+                        "recommendations": [],
+                        "image_url": stimulus.image_url,
+                        "benchmark": stimulus.benchmark,
+                        "status": 5,
+                    }
+                },
+            )
+            return {
+                "stimulus_id": stimulus.stimulus_id,
+                "folder_id": stimulus.folder_id,
+                "recommendations": [],
+                "image_url": stimulus.image_url,
+                "benchmark": stimulus.benchmark,
+                "status": 5,
+            }
 
     except OpenAIError as e:
         raise HTTPException(status_code=500, detail=f"OpenAI Error: {e}")
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=f"Validation Error: {e.json()}")
-    
 
 
 @router.get("/recommendation/stimulus/{stimulus_id}")
 def get_recommendations_by_stimulus_id(stimulus_id: int):
     try:
-        recommendations_collection = pymongo_client.get_database("analyzer").get_collection("recommendations")
+        recommendations_collection = pymongo_client.get_database(
+            "analyzer"
+        ).get_collection("recommendations")
 
-        result = recommendations_collection.find_one({"stimulus_id": stimulus_id})
+        result = recommendations_collection.find_one({"stimulus_id": stimulus_id}, sort=[( '_id', pymongo.DESCENDING )]
+)
 
         if result:
             recommendations = StimulusRecommendations(**result)
             return recommendations
         else:
-            raise HTTPException(status_code=404, detail="No se encontraron recomendaciones para este estimulo")
+            return {
+                "stimulus_id": stimulus_id,
+                "folder_id": 0,
+                "recommendations": [],
+                "image_url": "",
+                "benchmark": "",
+                "status": 1,
+            }
 
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=f"Validation Error: {e.json()}")
+
 
 @router.get("/recommendation/folder/{folder_id}")
 def get_recommendations_by_folder_id(folder_id: int):
     try:
-        recommendations_collection = pymongo_client.get_database("analyzer").get_collection("recommendations")
+        recommendations_collection = pymongo_client.get_database(
+            "analyzer"
+        ).get_collection("recommendations")
 
-        count = recommendations_collection.count_documents({"folder_id": folder_id})
-        if count > 0:
-            result = recommendations_collection.find({"folder_id": folder_id})
-            recommendations = [StimulusRecommendations(**rec) for rec in result]
+        pipeline = [
+            {"$match": {"folder_id": folder_id}},
+            {"$sort": {"_id": pymongo.DESCENDING}},  
+            {
+                "$group": {
+                    "_id": "$stimulus_id",
+                    "latest_doc": {"$first": "$$ROOT"}
+                }
+            }
+        ]
+
+        results = list(recommendations_collection.aggregate(pipeline))
+
+        if results:
+            recommendations = [StimulusRecommendations(**rec["latest_doc"]) for rec in results]
             return recommendations
         else:
-            raise HTTPException(status_code=404, detail="No se encontraron recomendaciones para esta carpeta")
+            raise HTTPException(
+                status_code=404,
+                detail="No se encontraron recomendaciones para esta carpeta",
+            )
 
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=f"Validation Error: {e.json()}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

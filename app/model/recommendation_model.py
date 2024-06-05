@@ -16,3 +16,4 @@ class StimulusRecommendations(BaseModel):
     recommendations: List[Recommendation]
     image_url: str
     benchmark: str
+    status: int
