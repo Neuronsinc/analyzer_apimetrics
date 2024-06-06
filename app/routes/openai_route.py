@@ -24,7 +24,7 @@ assistant = client.beta.assistants.retrieve(assistant_id=ASSISTANT_ID)
 
 
 @router.post("/recommendation/")
-async def generate_recommendations(stimulus: RecommendationRequest):
+def generate_recommendations(stimulus: RecommendationRequest):
     try:
         recommendations_collection = pymongo_client.get_database("analyzer").get_collection("recommendations")
 
@@ -68,6 +68,7 @@ async def generate_recommendations(stimulus: RecommendationRequest):
             )
 
             message_content = messages[0].content[0].text
+            print("ESTO QUEREMOS =>>>", message_content)
             response = json.loads(message_content.value)
 
             recommendations = [Recommendation(**item) for item in response]
