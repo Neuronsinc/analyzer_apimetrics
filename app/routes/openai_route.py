@@ -1,3 +1,4 @@
+import re
 from app.model.recommendation_model import Recommendation, StimulusRecommendations
 from app.model.recommendation_request_model import RecommendationRequest
 from fastapi import FastAPI, HTTPException, APIRouter
@@ -23,10 +24,25 @@ client = OpenAI(api_key=API_KEY)
 assistant = client.beta.assistants.retrieve(assistant_id=ASSISTANT_ID)
 
 
+def clean_json_string(json_string):
+    pattern = r"^```json\s*(.*?)\s*```$"
+    cleaned_string = re.sub(pattern, r"\1", json_string, flags=re.DOTALL)
+    return cleaned_string.strip()
+
+
 @router.post("/recommendation/")
-async def generate_recommendations(stimulus: RecommendationRequest):
+def generate_recommendations(stimulus: RecommendationRequest):
     try:
         recommendations_collection = pymongo_client.get_database("analyzer").get_collection("recommendations")
+
+        error_recs = {
+            "stimulus_id": stimulus.stimulus_id,
+            "folder_id": stimulus.folder_id,
+            "recommendations": [],
+            "image_url": stimulus.image_url,
+            "benchmark": stimulus.benchmark,
+            "status": 5,
+        }
 
         inserted_recs = recommendations_collection.insert_one(
             {
@@ -68,7 +84,9 @@ async def generate_recommendations(stimulus: RecommendationRequest):
             )
 
             message_content = messages[0].content[0].text
-            response = json.loads(message_content.value)
+            print(message_content)
+            message_value = clean_json_string(message_content.value)
+            response = json.loads(message_value)
 
             recommendations = [Recommendation(**item) for item in response]
             stimulus_recs = StimulusRecommendations(
@@ -93,45 +111,43 @@ async def generate_recommendations(stimulus: RecommendationRequest):
                     }
                 },
             )
+
             return stimulus_recs
         elif run.status == "failed":
+            print(run.last_error.code)
             recommendations_collection.update_one(
                 {"_id": ObjectId(inserted_recs.inserted_id)},
-                {
-                    "$set": {
-                        "stimulus_id": stimulus.stimulus_id,
-                        "folder_id": stimulus.folder_id,
-                        "recommendations": [],
-                        "image_url": stimulus.image_url,
-                        "benchmark": stimulus.benchmark,
-                        "status": 5,
-                    }
-                },
+                {"$set": error_recs},
             )
-            return {
-                "stimulus_id": stimulus.stimulus_id,
-                "folder_id": stimulus.folder_id,
-                "recommendations": [],
-                "image_url": stimulus.image_url,
-                "benchmark": stimulus.benchmark,
-                "status": 5,
-            }
-
+            return error_recs
     except OpenAIError as e:
+        recommendations_collection.update_one(
+            {"_id": ObjectId(inserted_recs.inserted_id)},
+            {"$set": error_recs},
+        )
         raise HTTPException(status_code=500, detail=f"OpenAI Error: {e}")
     except ValidationError as e:
+        recommendations_collection.update_one(
+            {"_id": ObjectId(inserted_recs.inserted_id)},
+            {"$set": error_recs},
+        )
         raise HTTPException(status_code=400, detail=f"Validation Error: {e.json()}")
-
+    except ValueError as e:
+        recommendations_collection.update_one(
+            {"_id": ObjectId(inserted_recs.inserted_id)},
+            {"$set": error_recs},
+        )
+        raise HTTPException(status_code=500, detail=f"ValueError: {e}")
+    
 
 @router.get("/recommendation/stimulus/{stimulus_id}")
 def get_recommendations_by_stimulus_id(stimulus_id: int):
     try:
-        recommendations_collection = pymongo_client.get_database(
-            "analyzer"
-        ).get_collection("recommendations")
+        recommendations_collection = pymongo_client.get_database("analyzer").get_collection("recommendations")
 
-        result = recommendations_collection.find_one({"stimulus_id": stimulus_id}, sort=[( '_id', pymongo.DESCENDING )]
-)
+        result = recommendations_collection.find_one(
+            {"stimulus_id": stimulus_id}, sort=[("_id", pymongo.DESCENDING)]
+        )
 
         if result:
             recommendations = StimulusRecommendations(**result)
@@ -153,25 +169,20 @@ def get_recommendations_by_stimulus_id(stimulus_id: int):
 @router.get("/recommendation/folder/{folder_id}")
 def get_recommendations_by_folder_id(folder_id: int):
     try:
-        recommendations_collection = pymongo_client.get_database(
-            "analyzer"
-        ).get_collection("recommendations")
+        recommendations_collection = pymongo_client.get_database("analyzer").get_collection("recommendations")
 
         pipeline = [
             {"$match": {"folder_id": folder_id}},
-            {"$sort": {"_id": pymongo.DESCENDING}},  
-            {
-                "$group": {
-                    "_id": "$stimulus_id",
-                    "latest_doc": {"$first": "$$ROOT"}
-                }
-            }
+            {"$sort": {"_id": pymongo.DESCENDING}},
+            {"$group": {"_id": "$stimulus_id", "latest_doc": {"$first": "$$ROOT"}}},
         ]
 
         results = list(recommendations_collection.aggregate(pipeline))
 
         if results:
-            recommendations = [StimulusRecommendations(**rec["latest_doc"]) for rec in results]
+            recommendations = [
+                StimulusRecommendations(**rec["latest_doc"]) for rec in results
+            ]
             return recommendations
         else:
             raise HTTPException(
