@@ -84,8 +84,8 @@ def generate_recommendations(stimulus: RecommendationRequest):
             )
 
             message_content = messages[0].content[0].text
-            print(message_content)
-            message_value = clean_json_string(message_content.value)
+            print("ESTO QUEREMOS =>>>", message_content)
+            message_value = clean_json_string(message_content.value) # Eliminar "```" y "```json" si OpenAI responde en markdown
             response = json.loads(message_value)
 
             recommendations = [Recommendation(**item) for item in response]
