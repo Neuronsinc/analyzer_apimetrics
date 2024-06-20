@@ -29,7 +29,7 @@ import datetime
 # x = model.predict(input_array)
 # print(x)
 
-BACKEND = 'https://analyzerapi.troiatec.com'
+BACKEND = 'https://analyzerapiv3.troiatec.com'
 #BACKEND = 'http://localhost/Analyzer/Predict_Analyzer_Back'
 client = pymongo.MongoClient('172.17.0.1:27017')
 
@@ -396,7 +396,7 @@ def sendMail(id: str, vidName: str, folderName: str, token: str, tipo: str):
 
 def handleStatus(idStimulus, status, token: str):
     data = {'id': idStimulus, 'status': status, 'error': ""}
-    headers = {'Authorization': f'Bearer {token}'}
+    headers = {'Authorization': f'{token}'} #se quito bearer ya que ya lo trae
     url = f'{BACKEND}/Stimulus/handleStatus'
     requests.post(url=url, data=data, headers=headers)
     return "true"

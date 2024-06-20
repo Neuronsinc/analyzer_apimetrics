@@ -1,5 +1,6 @@
-from fastapi import APIRouter, File, UploadFile, Request, Form
-
+from fastapi import APIRouter, File, UploadFile, Request, Form, BackgroundTasks
+from app.model.api_model import ARequest
+from app.model.celery_model import clarity_pred
 import requests
 import os
 from os import remove
@@ -16,7 +17,7 @@ router = APIRouter()
 
 route_predict = 'app/image_cache'
 
-BACKEND = 'https://analyzerapi.troiatec.com'
+BACKEND = 'https://analyzerapiv3.troiatec.com'
 
 def comprimir_imagen(file):
     imagen_original = Image.open(BytesIO(file.read()))
@@ -39,7 +40,7 @@ def comprimir_imagen(file):
 
 
 @router.post('/Analyzer/Stimulus')
-def data(t: Request, file: UploadFile = File(...), id_folder: str = Form(), id_father: str = Form()):
+def data(background_tasks: BackgroundTasks, t: Request, file: UploadFile = File(...), id_folder: str = Form()):
     token = t.headers.get('Authorization')
     print(f'id_folder {id_folder}')
 
@@ -84,6 +85,13 @@ def data(t: Request, file: UploadFile = File(...), id_folder: str = Form(), id_f
         fo.close()
 
         if (status_c == 200):
+            if extension != ".mp4":
+                data = ARequest(
+                    id_stimulus=str(jsonResponse),
+                    analyzer_token=token,
+                    clarity=""
+                )
+                clarity_pred.apply_async(args=[data.dict()])
             remove(fileName)
             return {"idStimulus": str(jsonResponse), "idFolder": id_folder}
         else:

@@ -19,7 +19,7 @@ from datetime import datetime
 import requests
 
 
-BACKEND = 'https://analyzerapi.troiatec.com'
+BACKEND = 'https://analyzerapiv3.troiatec.com'
 client = pymongo.MongoClient('172.17.0.1:27017')
 
 def analyze(stimulus: Stimulus, token: str, credentials:ApiCredential, settings:StudySettings, userCreation = None):

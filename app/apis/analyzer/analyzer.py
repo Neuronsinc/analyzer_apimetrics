@@ -14,7 +14,7 @@ from app.model.cache_model import cache_manager
 
 
 
-BACKEND = 'https://analyzerapi.troiatec.com'
+BACKEND = 'https://analyzerapiv3.troiatec.com'
 #BACKEND = 'http://localhost/Analyzer/Predict_Analyzer_Back/'
 # BACKEND = os.getenv('BACKEND')
 
@@ -243,7 +243,7 @@ def get_stimulus(stimulus_id: str, analyzer_token: str) -> Stimulus:
     if not(len(stimulus_id) == 0):
 
         data = {'idStimulus': stimulus_id} 
-        headers = {'Authorization': f'Bearer {analyzer_token}'}
+        headers = {'Authorization': f'{analyzer_token}'}
 
         response_stimulus = requests.post(url= f'{BACKEND}/Stimulus/getStimulusUrl',data=data, headers=headers)
         print("contenido del getstimulusrul")
