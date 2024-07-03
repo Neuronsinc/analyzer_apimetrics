@@ -80,7 +80,7 @@ def get_api_credentials(api, token, check, type = 0, cache = None, duration = 1,
         if cache is None:
             print("=============entre a no cache ===========")
             data = {'api': api}
-            headers = {'Authorization': f'Bearer {token}'}
+            headers = {'Authorization': f'{token}'}
             # headers = {'Authorization': f'{token}'}
 
             request_credentials = requests.post(url= f'{BACKEND}/Stimulus/getApiCredentials' ,data=data, headers=headers)
@@ -182,7 +182,7 @@ def get_api_credentials(api, token, check, type = 0, cache = None, duration = 1,
                 return None
         else:    
             data = {'api': api}
-            headers = {'Authorization': f'Bearer {token}'}
+            headers = {'Authorization': f'{token}'}
             # headers = {'Authorization': f'{token}'}
 
             request_credentials = requests.post(url= f'{BACKEND}/Stimulus/getApiCredentials' ,data=data, headers=headers)

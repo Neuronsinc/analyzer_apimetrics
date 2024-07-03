@@ -1,4 +1,4 @@
-from celery import Celery
+from celery import Celery, chain
 import gc
 from app.model.api_model import ARequest
 from app.model.api_model import Apis
@@ -18,9 +18,18 @@ from app.model.cache_model import cache_manager
 
 from app.apis.feng.feng import analyze
 
+import redis
+import json
+
+
 #Configuración
-BROKER_URL = 'redis://127.0.0.1:6379/0'
-BACKEND_URL = 'redis://127.0.0.1:6379/0'
+BROKER_URL = 'redis://localhost:6379/0'
+BACKEND_URL = 'redis://localhost:6379/0'
+
+REDIS='redis-14737.c274.us-east-1-3.ec2.cloud.redislabs.com'
+REDISPORT=14737
+REDISUSERNAME = 'default'
+REDISPASSWORD = 'sBiMwZAb2w1jmwGDIMmi7kx941ArAGXQ'
 
 #correr en windows celery (https://github.com/celery/celery/issues/4178#issuecomment-344176336):
 #python -m celery -A app.model.celery_model worker --pool=solo -l info
@@ -32,35 +41,77 @@ celery_app = Celery(
 )
 
 @celery_app.task
+def caracteristicas(data: dict):
+    # arequest = ARequest(
+    #             id_stimulus=data["id_stimulus"],
+    #             analyzer_token=data["analyzer_token"],
+    #             clarity=data["clarity"]
+    #             )
+    # print(arequest)
+    stimulus = get_stimulus(data["id_stimulus"], data["analyzer_token"])
+    try:
+        print('entreee a caracteristicaaaaasss')
+        img = ImageCaracteristics(stimulus.image_url)
+        data["clarity"] = img.clarity()
+        data["StimulusName"] = stimulus.filename
+        print(data)
+        print(f'claridad: {img.clarity()}, claridad en dict: {data["clarity"]}')
+        return data
+    except:
+        handleStatus(data["id_stimulus"], 3, data["analyzer_token"])
+        return "failed"
+    return "success"
+
+@celery_app.task
 def clarity_pred(data: dict):
+    print(f'diccionario que debe venir de caracteristicas =>> {data}')
     # feng.analyze_file()
-    arequest = ARequest(
-                id_stimulus=data["id_stimulus"],
-                analyzer_token=data["analyzer_token"],
-                clarity=data["clarity"]
-                )
-    print(arequest)
-    stimulus = get_stimulus(arequest.id_stimulus, arequest.analyzer_token)
+    # arequest = ARequest(
+    #             id_stimulus=data["id_stimulus"],
+    #             analyzer_token=data["analyzer_token"],
+    #             clarity=data["clarity"]
+    #             )
+    # print(arequest)
+    #stimulus = get_stimulus(arequest.id_stimulus, arequest.analyzer_token)
     
     response = ""
     try:
-        img = ImageCaracteristics(stimulus.image_url)
+        #img = ImageCaracteristics(stimulus.image_url)
         # clarity = clarity_model_manager.get_prediction(stimulus.image_url) #clarity engagement
-        clarity = clarity_model_manager.get_clarity_prediction(img.clarity()) #clarity engagement
+        clarity = clarity_model_manager.get_clarity_prediction(data["clarity"]) #clarity engagement
         print(clarity)
         if clarity is not None:
             response = {"clarity": str(clarity)}
             print(response)
-            handleStatus(arequest.id_stimulus, 1, arequest.analyzer_token)
+
+            handleStatus(data["id_stimulus"], 1, data["analyzer_token"])
+
+            connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
+            mi_objeto = { 
+            'idUser': data["idUser"],
+            'idCompany': data["idCompany"],
+            'idLicense': data["idLicense"],
+            'idStimulus': data["id_stimulus"],
+            'token': data["analyzer_token"],
+            'idFolder': data["idFolder"],
+            'FolderName': data["FolderName"],
+            'StimulusName': data["StimulusName"],
+            'finish': "false"
+            }
+
+            connection.lpush('Analizados', json.dumps(mi_objeto))
+            connection.publish('Analizados', json.dumps(mi_objeto))
             #feng_analyze(arequest=arequest).apply_async()
+            data["clarity"] = clarity
             del clarity
             gc.collect()
+            return data
         else:
             del clarity
             gc.collect()
             raise Exception
     except:
-        handleStatus(arequest.id_stimulus, 3, arequest.analyzer_token)
+        handleStatus(data["id_stimulus"], 3, data["analyzer_token"])
         return "failed"
         #return JSONResponse(content="failed", status_code=500)
 
@@ -68,10 +119,11 @@ def clarity_pred(data: dict):
 
 
 @celery_app.task
-def feng_analyze(arequest: ARequest):
+def feng_analyze(data: dict):
+    print(f'diccionario que debe venir de predicciones =>> {data}')
     cache = cache_manager.get_cache_instance()
-    credentials = get_api_credentials(Apis.FENGUI.value, arequest.analyzer_token, True, 0, cache)
-    stimulus = get_stimulus(arequest.id_stimulus, arequest.analyzer_token)
+    credentials = get_api_credentials(Apis.FENGUI.value, data["analyzer_token"], True, 0, cache)
+    stimulus = get_stimulus(data["id_stimulus"], data["analyzer_token"])
 
     if credentials == "Ninguno" or credentials == "NingunaEspecifica":
         mensaje = ""
@@ -80,8 +132,8 @@ def feng_analyze(arequest: ARequest):
         elif credentials == "NingunaEspecifica":
             mensaje = "En ninguna cuenta hay disponibilidad para subir el estímulo requerido."
 
-        AvisoSoporte(0, stimulus.id_folder, stimulus.filename, arequest.analyzer_token, mensaje, "Todas", "Feng", stimulus.image_url)
-        handleStatus(arequest.id_stimulus, 3, arequest.analyzer_token)
+        AvisoSoporte(0, stimulus.id_folder, stimulus.filename, data["analyzer_token"], mensaje, "Todas", "Feng", stimulus.image_url)
+        handleStatus(data["id_stimulus"], 3, data["analyzer_token"])
         return "failed"
 
     # studySettings = {"study_name": getS["title"], "study_type": "general", "content_type": "general", 'tasks[0]': 'focus', 'tasks[1]': 'clarity_score'}
@@ -89,15 +141,42 @@ def feng_analyze(arequest: ARequest):
     #model = model_manager.get_model_instance()
     #scaler = model_manager.scaler()
     try:
-        response = analyze(stimulus, float(arequest.clarity), arequest.analyzer_token, credentials)
+        response = analyze(stimulus, float(data["clarity"]), data["analyzer_token"], credentials)
 
         if "Successful" in response:
-            handleStatus(arequest.id_stimulus, 2, arequest.analyzer_token)
+            
+            handleStatus(data["id_stimulus"], 2, data["analyzer_token"])
+
+            connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
+            mi_objeto = { 
+            'idUser': data["idUser"],
+            'idCompany': data["idCompany"],
+            'idLicense': data["idLicense"],
+            'idStimulus': data["id_stimulus"],
+            'token': data["analyzer_token"],
+            'idFolder': data["idFolder"],
+            'FolderName': data["FolderName"],
+            'StimulusName': data["StimulusName"],
+            'finish': "true"
+            }
+
+            connection.lpush('Analizados', json.dumps(mi_objeto))
+            connection.publish('Analizados', json.dumps(mi_objeto))
         else:
-            handleStatus(arequest.id_stimulus, 3, arequest.analyzer_token) # fallo
+            handleStatus(data["id_stimulus"], 3, data["analyzer_token"]) # fallo
             return "failed"
     except:
-        handleStatus(arequest.id_stimulus, 3, arequest.analyzer_token) # fallo
+        handleStatus(data["id_stimulus"], 3, data["analyzer_token"]) # fallo
         return "failed"
 
     return "success"
+
+
+#workflow (Caracteristicas -> prediccion -> Feng)
+
+def pipeline(data: dict):
+    chain(
+        caracteristicas.s(data).set(queue='caracteristicas') |
+        clarity_pred.s().set(queue='prediccion') |
+        feng_analyze.s().set(queue='feng')
+    ).apply_async()

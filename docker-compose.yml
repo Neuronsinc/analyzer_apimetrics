@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis
+    ports:
+      - "6379:6379"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+
+  fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    volumes:
+      - "C:/Users/Dev1/Desktop/analyzer_apimetrics:/code"
+    privileged: true
+    stdin_open: true
+    tty: true
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+
+  worker_caracteristicas:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "app.model.celery_model", "worker", "-l", "info", "--queues=caracteristicas", "--concurrency=1"]
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 2GB
+
+  worker_prediccion:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "app.model.celery_model", "worker", "--pool", "threads", "-l", "info", "--queues=prediccion"]
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 2GB
+
+  worker_feng:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "app.model.celery_model", "worker", "--pool", "eventlet", "-l", "info", "--queues=feng"]
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 2GB

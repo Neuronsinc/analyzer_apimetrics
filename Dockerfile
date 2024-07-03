@@ -28,11 +28,15 @@ RUN pip install --upgrade pip
 # RUN pip install selenium
 RUN pip install pytest
 RUN pip install watchdog
+RUN pip install tensorflow==2.13.0
 
 # RUN pip install tensorflow
 # RUN pip install 'uvicorn[standard]'
 
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+
+# Instalar Redis
+RUN apt-get update && apt-get install -y redis-server
 
 # RUN pip freeze > requirements_container.txt
 RUN apt -y install curl
@@ -58,5 +62,16 @@ ENV BUILD_COMMIT=$COMMIT
 ARG DEV_END
 ENV DEVELOP_END=$DEV_END
 
+# Copiar el script de inicio y darle permisos de ejecución
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
+# Exponer los puertos necesarios
+#EXPOSE 80 6379
+
+# Establecer el script de inicio como el comando de inicio del contenedor
+#CMD ["/app/start.sh"]
+
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80", "--reload", "--ws-ping-interval", "1", "--ws-ping-timeout", "180"]
+#CMD ["celery", "-A", "app.model.celery_model", "worker", "-l", "info", "--queues=clarity"]
 # CMD ["pytest"]
