@@ -36,11 +36,6 @@ def generate_recommendations(stimulus: RecommendationRequest):
         recommendations_collection = pymongo_client.get_database("analyzer").get_collection("recommendations")
 
         error_recs = {
-            "stimulus_id": stimulus.stimulus_id,
-            "folder_id": stimulus.folder_id,
-            "recommendations": [],
-            "image_url": stimulus.image_url,
-            "benchmark": stimulus.benchmark,
             "status": 5,
         }
 
@@ -111,7 +106,6 @@ def generate_recommendations(stimulus: RecommendationRequest):
                     }
                 },
             )
-
             return stimulus_recs
         elif run.status == "failed":
             print(run.last_error.code)
@@ -119,7 +113,8 @@ def generate_recommendations(stimulus: RecommendationRequest):
                 {"_id": ObjectId(inserted_recs.inserted_id)},
                 {"$set": error_recs},
             )
-            return error_recs
+            raise HTTPException(status_code=307, detail=f"OpenAI Error: {run.last_error.code}")
+
     except OpenAIError as e:
         recommendations_collection.update_one(
             {"_id": ObjectId(inserted_recs.inserted_id)},
