@@ -50,3 +50,4 @@ joblib==1.2.0
 lightgbm>=4.3.0
 celery==5.4.0
 eventlet==0.36.1
+moviepy==1.0.3

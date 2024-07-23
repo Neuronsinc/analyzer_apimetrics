@@ -1,6 +1,6 @@
 from fastapi import APIRouter, File, UploadFile, Request, Form, BackgroundTasks
 from app.model.api_model import ARequest
-from app.model.celery_model import pipeline, caracteristicas
+from app.model.celery_model import pipeline, caracteristicas, procesar_video
 import requests
 import os
 from os import remove
@@ -11,6 +11,8 @@ import hashlib
 from PIL import Image, ExifTags
 from io import BytesIO
 from fastapi.responses import JSONResponse
+
+from moviepy.editor import VideoFileClip
 
 
 router = APIRouter()
@@ -65,6 +67,8 @@ def data(background_tasks: BackgroundTasks, t: Request, file: UploadFile = File(
         h = f'{datetime.now().strftime("%d%m%Y_%H%M%S")}'
         reg = re.sub('[^A-Za-z0-9]+','',re.sub('\s+', '-', (originalName).lower()))
         fileName = f"{h}{reg}{extension}"
+
+        duration = 1
         
         if  (extension != ".mp4"):
             redimensionada = comprimir_imagen(file.file)
@@ -72,6 +76,10 @@ def data(background_tasks: BackgroundTasks, t: Request, file: UploadFile = File(
         else:
             with open(fileName, 'wb') as f:
                 shutil.copyfileobj(file.file, f)
+            
+            video = VideoFileClip(fileName)
+            duration = int(video.duration)
+            video.close()   
 
         data = {'id_folder': id_folder}
         fo = open(fileName, 'rb')
@@ -98,6 +106,19 @@ def data(background_tasks: BackgroundTasks, t: Request, file: UploadFile = File(
                 }
                 #caracteristicas.apply_async(args=[data.dict()], queue='caracteristicas')
                 pipeline(data)
+            else:
+                data = {
+                    "idUser":idUser,
+                    "idCompany":idCompany,
+                    "idLicense":idLicense,
+                    "id_stimulus":str(jsonResponse),
+                    "analyzer_token":token,
+                    "idFolder":id_folder,
+                    "StimulusName":originalName,
+                    "FolderName":FolderName,
+                    "Duration":duration
+                }
+                procesar_video.apply_async(args=[data], queue='procesarVids')
             remove(fileName)
             return {"idStimulus": str(jsonResponse), "idFolder": id_folder}
         else:

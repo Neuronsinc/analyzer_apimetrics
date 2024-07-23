@@ -20,6 +20,7 @@ from app.apis.feng.feng import analyze
 
 import redis
 import json
+import math
 
 
 #Configuración
@@ -99,8 +100,8 @@ def clarity_pred(data: dict):
             'finish': "false"
             }
 
-            connection.lpush('Analizados', json.dumps(mi_objeto))
-            connection.publish('Analizados', json.dumps(mi_objeto))
+            connection.lpush('AnalizadosImg', json.dumps(mi_objeto))
+            connection.publish('AnalizadosImg', json.dumps(mi_objeto))
             #feng_analyze(arequest=arequest).apply_async()
             data["clarity"] = clarity
             del clarity
@@ -160,8 +161,8 @@ def feng_analyze(data: dict):
             'finish': "true"
             }
 
-            connection.lpush('Analizados', json.dumps(mi_objeto))
-            connection.publish('Analizados', json.dumps(mi_objeto))
+            connection.lpush('AnalizadosImg', json.dumps(mi_objeto))
+            connection.publish('AnalizadosImg', json.dumps(mi_objeto))
         else:
             handleStatus(data["id_stimulus"], 3, data["analyzer_token"]) # fallo
             return "failed"
@@ -171,8 +172,67 @@ def feng_analyze(data: dict):
 
     return "success"
 
+# Procesar videos
+@celery_app.task
+def procesar_video(data: dict):
 
-#workflow (Caracteristicas -> prediccion -> Feng)
+    cache = cache_manager.get_cache_instance()
+    credentials = get_api_credentials(Apis.FENGUI.value, data["analyzer_token"], True, 1, cache, data["Duration"])
+    stimulus = get_stimulus(data["id_stimulus"], data["analyzer_token"])
+
+    if credentials == "Ninguno" or credentials == "NingunaEspecifica":
+        mensaje = ""
+        if credentials == "Ninguno":
+            mensaje = "Se acabaron los créditos en todas las cuentas y no es posible analizar nada más."
+        elif credentials == "NingunaEspecifica":
+            mensaje = "En ninguna cuenta hay disponibilidad para subir el estímulo requerido."
+
+        AvisoSoporte(0, stimulus.id_folder, stimulus.filename, data["analyzer_token"], mensaje, "Todas", "Feng", stimulus.image_url)
+        handleStatus(data["id_stimulus"], 3, data["analyzer_token"])
+        return 'failed'
+
+    data_v = analyzeVids(stimulus, data["analyzer_token"], credentials)
+
+    if data_v["message"] == "success":
+        # al ser exitoso debemos restar los créditos de la cuenta seleccionada
+        total_creditos_videos = math.floor(int(data["Duration"]) / 10)
+
+        if total_creditos_videos == 0:
+            total_creditos_videos = 1
+
+        cache_manager.extract_credits(credentials.name, total_creditos_videos)
+
+        connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
+        # Objeto Python a  almacenar en Redis
+        mi_objeto = {
+        'videoID': data_v["result"], 
+        'idUser': data["idUser"],
+        'idCompany': data["idCompany"],
+        'idLicense': data["idLicense"],
+        'idStimulus': data["id_stimulus"],
+        'token': data["analyzer_token"],
+        'idFolder': data["idFolder"],
+        'StimulusName': data["StimulusName"],
+        'FolderName': data["FolderName"],
+        'UploadedAccount': credentials.name,
+        'Duration': data["Duration"]
+        }
+
+        # Serializar el objeto como una cadena JSON
+        cadena_json = json.dumps(mi_objeto)
+
+        # Agregar la cadena JSON a una lista en Redis
+        connection.rpush('Procesar', cadena_json)
+        connection.publish('Procesar', cadena_json)
+
+        return 'success'
+        #return JSONResponse(content=data_v["result"], status_code=200)
+    
+    handleStatus(data["id_stimulus"], 3, data["analyzer_token"])
+    return 'failed'
+    #return JSONResponse(content=data_v["result"], status_code=500)
+
+#workflow imagenes (Caracteristicas -> prediccion -> Feng)
 
 def pipeline(data: dict):
     chain(

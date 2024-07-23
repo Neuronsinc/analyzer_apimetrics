@@ -72,3 +72,17 @@ services:
         limits:
           cpus: '0.50'
           memory: 2GB
+
+  worker_videos:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "app.model.celery_model", "worker", "--pool", "eventlet", "-l", "info", "--queues=procesarVids"]
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 2GB
