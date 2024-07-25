@@ -128,7 +128,8 @@ def data(background_tasks: BackgroundTasks, t: Request, file: UploadFile = File(
         
     except Exception as ex:
         print(ex)
-        raise {"message": "Error uploading the file"}
+        return JSONResponse(content="Error uploading the file", status_code=500)
+        #raise {"message": "Error uploading the file"}
 
     finally:
         file.file.close()

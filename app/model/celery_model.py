@@ -32,6 +32,8 @@ REDISPORT=14737
 REDISUSERNAME = 'default'
 REDISPASSWORD = 'sBiMwZAb2w1jmwGDIMmi7kx941ArAGXQ'
 
+connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
+
 #correr en windows celery (https://github.com/celery/celery/issues/4178#issuecomment-344176336):
 #python -m celery -A app.model.celery_model worker --pool=solo -l info
 
@@ -40,6 +42,41 @@ celery_app = Celery(
     broker= BROKER_URL,
     backend= BACKEND_URL
 )
+
+def messagesRedis(message: dict, type: int, status: int):
+    """
+    Encola mensajes de éxito o fallo en colas de Redis.
+
+    Parameters:
+    ----------
+    message : dict
+        El mensaje que se va a encolar.
+    type : int
+        El tipo de mensaje. Puede ser:
+        - 0 -> imagen
+        - 1 -> video
+    status : int
+        El estado del mensaje. Puede ser:
+        - 0 -> Exitoso
+        - 1 -> Fallido
+    """
+    if (type == 0):
+        if (status == 0): 
+            connection.lpush('AnalizadosImg', json.dumps(message))
+            connection.publish('AnalizadosImg', json.dumps(message))
+        else:
+            connection.lpush('FalladosImg', json.dumps(message))
+            connection.publish('FalladosImg', json.dumps(message))
+    else:
+        if (status == 0):
+            connection.rpush('Procesar', json.dumps(message))
+            connection.publish('Procesar', json.dumps(message))
+        else:
+            connection.lpush('Fallados', json.dumps(message))
+            connection.publish('Fallados', json.dumps(message))
+
+
+
 
 @celery_app.task
 def caracteristicas(data: dict):
@@ -60,6 +97,21 @@ def caracteristicas(data: dict):
         return data
     except:
         handleStatus(data["id_stimulus"], 3, data["analyzer_token"])
+
+        mi_objeto = {
+            'idUser': data["idUser"],
+            'idCompany': data["idCompany"],
+            'idLicense': data["idLicense"],
+            'idStimulus': data["id_stimulus"],
+            'token': data["analyzer_token"],
+            'idFolder': data["idFolder"],
+            'FolderName': data["FolderName"],
+            'StimulusName': stimulus.filename if hasattr(stimulus, 'filename') and stimulus.filename is not None else '',
+            'finish': "false"
+        }
+
+        messagesRedis(mi_objeto, 0, 1)
+
         return "failed"
     return "success"
 
@@ -87,7 +139,6 @@ def clarity_pred(data: dict):
 
             handleStatus(data["id_stimulus"], 1, data["analyzer_token"])
 
-            connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
             mi_objeto = { 
             'idUser': data["idUser"],
             'idCompany': data["idCompany"],
@@ -100,8 +151,8 @@ def clarity_pred(data: dict):
             'finish': "false"
             }
 
-            connection.lpush('AnalizadosImg', json.dumps(mi_objeto))
-            connection.publish('AnalizadosImg', json.dumps(mi_objeto))
+            messagesRedis(mi_objeto, 0, 0)
+
             #feng_analyze(arequest=arequest).apply_async()
             data["clarity"] = clarity
             del clarity
@@ -113,6 +164,21 @@ def clarity_pred(data: dict):
             raise Exception
     except:
         handleStatus(data["id_stimulus"], 3, data["analyzer_token"])
+
+        mi_objeto = {
+            'idUser': data["idUser"],
+            'idCompany': data["idCompany"],
+            'idLicense': data["idLicense"],
+            'idStimulus': data["id_stimulus"],
+            'token': data["analyzer_token"],
+            'idFolder': data["idFolder"],
+            'FolderName': data["FolderName"],
+            'StimulusName': data["StimulusName"],
+            'finish': "false"
+        }
+
+        messagesRedis(mi_objeto, 0, 1)
+
         return "failed"
         #return JSONResponse(content="failed", status_code=500)
 
@@ -148,7 +214,6 @@ def feng_analyze(data: dict):
             
             handleStatus(data["id_stimulus"], 2, data["analyzer_token"])
 
-            connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
             mi_objeto = { 
             'idUser': data["idUser"],
             'idCompany': data["idCompany"],
@@ -161,13 +226,43 @@ def feng_analyze(data: dict):
             'finish': "true"
             }
 
-            connection.lpush('AnalizadosImg', json.dumps(mi_objeto))
-            connection.publish('AnalizadosImg', json.dumps(mi_objeto))
+            messagesRedis(mi_objeto, 0, 0)
+
         else:
             handleStatus(data["id_stimulus"], 3, data["analyzer_token"]) # fallo
+
+            mi_objeto = {
+                'idUser': data["idUser"],
+                'idCompany': data["idCompany"],
+                'idLicense': data["idLicense"],
+                'idStimulus': data["id_stimulus"],
+                'token': data["analyzer_token"],
+                'idFolder': data["idFolder"],
+                'FolderName': data["FolderName"],
+                'StimulusName': data["StimulusName"],
+                'finish': "true"
+            }
+
+            messagesRedis(mi_objeto, 0, 1)
+
             return "failed"
     except:
         handleStatus(data["id_stimulus"], 3, data["analyzer_token"]) # fallo
+
+        mi_objeto = {
+            'idUser': data["idUser"],
+            'idCompany': data["idCompany"],
+            'idLicense': data["idLicense"],
+            'idStimulus': data["id_stimulus"],
+            'token': data["analyzer_token"],
+            'idFolder': data["idFolder"],
+            'FolderName': data["FolderName"],
+            'StimulusName': data["StimulusName"],
+            'finish': "true"
+        }
+
+        messagesRedis(mi_objeto, 0, 1)
+
         return "failed"
 
     return "success"
@@ -202,7 +297,6 @@ def procesar_video(data: dict):
 
         cache_manager.extract_credits(credentials.name, total_creditos_videos)
 
-        connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
         # Objeto Python a  almacenar en Redis
         mi_objeto = {
         'videoID': data_v["result"], 
@@ -218,17 +312,29 @@ def procesar_video(data: dict):
         'Duration': data["Duration"]
         }
 
-        # Serializar el objeto como una cadena JSON
-        cadena_json = json.dumps(mi_objeto)
-
-        # Agregar la cadena JSON a una lista en Redis
-        connection.rpush('Procesar', cadena_json)
-        connection.publish('Procesar', cadena_json)
+        messagesRedis(mi_objeto, 1, 0)
 
         return 'success'
         #return JSONResponse(content=data_v["result"], status_code=200)
     
     handleStatus(data["id_stimulus"], 3, data["analyzer_token"])
+
+    mi_objeto = {
+        'videoID': data_v.get("result", ''), 
+        'idUser': data["idUser"],
+        'idCompany': data["idCompany"],
+        'idLicense': data["idLicense"],
+        'idStimulus': data["id_stimulus"],
+        'token': data["analyzer_token"],
+        'idFolder': data["idFolder"],
+        'StimulusName': data["StimulusName"],
+        'FolderName': data["FolderName"],
+        'UploadedAccount': credentials.name,
+        'Duration': data["Duration"]
+    }
+
+    messagesRedis(mi_objeto, 1, 1)
+
     return 'failed'
     #return JSONResponse(content=data_v["result"], status_code=500)
 
