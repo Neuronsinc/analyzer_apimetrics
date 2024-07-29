@@ -42,7 +42,7 @@ def comprimir_imagen(file):
 
 
 @router.post('/Analyzer/Stimulus')
-def data(background_tasks: BackgroundTasks, t: Request, file: UploadFile = File(...), id_folder: str = Form(), idUser: str = Form(), idCompany: str = Form(), idLicense: str = Form(), FolderName: str = Form()):
+def data(background_tasks: BackgroundTasks, t: Request, file: UploadFile = File(...), id_folder: str = Form(), idUser: str = Form(), idCompany: str = Form(), idLicense: str = Form(), FolderName: str = Form(), idUserAnalyzer: str = Form()):
     token = t.headers.get('Authorization')
     print(f'id_folder {id_folder}')
 
@@ -116,7 +116,8 @@ def data(background_tasks: BackgroundTasks, t: Request, file: UploadFile = File(
                     "idFolder":id_folder,
                     "StimulusName":originalName,
                     "FolderName":FolderName,
-                    "Duration":duration
+                    "Duration":duration,
+                    "idUserAnalyzer": idUserAnalyzer
                 }
                 procesar_video.apply_async(args=[data], queue='procesarVids')
             remove(fileName)

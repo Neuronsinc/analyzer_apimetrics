@@ -149,7 +149,7 @@ def data(arequest: RedisReq):
 
     if (csv == "Successful" and vids == "Successful"):
         connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
-
+        #idUser es ahora el id de Babel.
         mi_objeto = {
         'videoID': arequest.videoID, 
         'idUser': arequest.idUser,
@@ -164,7 +164,7 @@ def data(arequest: RedisReq):
         handleStatus(mi_objeto["idStimulus"], 2, mi_objeto['token'])
         connection.lpush('Analizados', json.dumps(mi_objeto))
         connection.publish('Analizados', json.dumps(mi_objeto))
-        sendMail(mi_objeto['idUser'], mi_objeto['StimulusName'], mi_objeto['FolderName'], mi_objeto['token'], "0")
+        sendMail(arequest.idUserAnalyzer, mi_objeto['StimulusName'], mi_objeto['FolderName'], mi_objeto['token'], "0")
     else:
         connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
 
@@ -182,6 +182,6 @@ def data(arequest: RedisReq):
         handleStatus(mi_objeto["idStimulus"], 3, mi_objeto['token'])
         connection.lpush('Fallados', json.dumps(mi_objeto))
         connection.publish('Fallados', json.dumps(mi_objeto))
-        sendMail(mi_objeto['idUser'], mi_objeto['StimulusName'], mi_objeto['FolderName'], mi_objeto['token'], "1")
+        sendMail(arequest.idUserAnalyzer, mi_objeto['StimulusName'], mi_objeto['FolderName'], mi_objeto['token'], "1")
     
     return "ok"

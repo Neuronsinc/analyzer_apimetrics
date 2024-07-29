@@ -309,7 +309,8 @@ def procesar_video(data: dict):
         'StimulusName': data["StimulusName"],
         'FolderName': data["FolderName"],
         'UploadedAccount': credentials.name,
-        'Duration': data["Duration"]
+        'Duration': data["Duration"],
+        'idUserAnalyzer': data["idUserAnalyzer"]
         }
 
         messagesRedis(mi_objeto, 1, 0)
@@ -330,7 +331,8 @@ def procesar_video(data: dict):
         'StimulusName': data["StimulusName"],
         'FolderName': data["FolderName"],
         'UploadedAccount': credentials.name,
-        'Duration': data["Duration"]
+        'Duration': data["Duration"],
+        'idUserAnalyzer': data["idUserAnalyzer"]
     }
 
     messagesRedis(mi_objeto, 1, 1)

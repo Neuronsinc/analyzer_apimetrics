@@ -25,3 +25,4 @@ class RedisReq(BaseModel):
     FolderName: str
     UploadedAccount: str
     Duration: str
+    idUserAnalyzer: str
