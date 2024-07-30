@@ -87,6 +87,7 @@ def get_model_manager():
 
 
 
-# Singleton pattern para garantizar una sola instancia del modelo
-#model_manager = get_model_manager()
-clarity_model_manager = ClarityModelManager()
+if(os.getenv('LOAD_CLARITY_MODEL') == 'true'):
+    clarity_model_manager = ClarityModelManager()
+else:
+    clarity_model_manager = None

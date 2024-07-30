@@ -95,10 +95,13 @@ def caracteristicas(data: dict):
     try:
         print('entreee a caracteristicaaaaasss')
         img = ImageCaracteristics(stimulus.image_url)
-        data["clarity"] = img.clarity()
+        lst_caracteristicas = list(map(lambda l: float(l) ,img.clarity()))
+        data["clarity"] = lst_caracteristicas
         data["StimulusName"] = stimulus.filename
+
         print(data)
         print(f'claridad: {img.clarity()}, claridad en dict: {data["clarity"]}')
+
         return data
     except:
         handleStatus(data["id_stimulus"], 3, data["analyzer_token"])
