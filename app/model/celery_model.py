@@ -351,10 +351,10 @@ def procesar_video(data: dict):
 #workflow imagenes (Caracteristicas -> prediccion -> Feng)
 
 def pipeline(data: dict):
-    chain(
-        caracteristicas.s(data).set(queue='caracteristicas') |
+    chain(caracteristicas.s(data).set(queue='caracteristicas') |
         clarity_pred.s().set(queue='prediccion') 
-        # feng_analyze.s().set(queue='feng')
     ).apply_async()
 
+
+# feng_analyze.s().set(queue='feng')
 
