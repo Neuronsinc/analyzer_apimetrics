@@ -36,15 +36,15 @@ RUN pip install tensorflow==2.13.0
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
 # Instalar Redis
-RUN apt-get update && apt-get install -y redis-server
+# RUN apt-get update && apt-get install -y redis-server
 
 # RUN pip freeze > requirements_container.txt
 RUN apt -y install curl
 
 COPY . /code
 
-COPY dbuild.sh /dbuild.sh
-RUN chmod +x /dbuild.sh
+# COPY dbuild.sh /dbuild.sh
+# RUN chmod +x /dbuild.sh
 
 
 ARG TIME
@@ -63,8 +63,8 @@ ARG DEV_END
 ENV DEVELOP_END=$DEV_END
 
 # Copiar el script de inicio y darle permisos de ejecución
-COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh
+# COPY start.sh /app/start.sh
+# RUN chmod +x /app/start.sh
 
 # Exponer los puertos necesarios
 #EXPOSE 80 6379
@@ -72,6 +72,6 @@ RUN chmod +x /app/start.sh
 # Establecer el script de inicio como el comando de inicio del contenedor
 #CMD ["/app/start.sh"]
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80", "--reload", "--ws-ping-interval", "1", "--ws-ping-timeout", "180"]
+# CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80", "--reload", "--ws-ping-interval", "1", "--ws-ping-timeout", "180"]
 #CMD ["celery", "-A", "app.model.celery_model", "worker", "-l", "info", "--queues=clarity"]
 # CMD ["pytest"]

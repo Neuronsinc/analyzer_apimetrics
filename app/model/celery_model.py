@@ -22,10 +22,15 @@ import redis
 import json
 import math
 
+import os
+
 
 #Configuración
-BROKER_URL = 'redis://localhost:6379/0'
-BACKEND_URL = 'redis://localhost:6379/0'
+# BROKER_URL = 'redis://localhost:6379/0'
+# BACKEND_URL = 'redis://localhost:6379/0'
+
+BROKER_URL = os.getenv('REDIS_BROKER_URL')
+BACKEND_URL = os.getenv('REDIS_BACKEND_URL')
 
 REDIS='redis-14737.c274.us-east-1-3.ec2.cloud.redislabs.com'
 REDISPORT=14737
