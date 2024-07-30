@@ -36,7 +36,7 @@ app.add_middleware(
 
 
 @app.get("/memtest")
-def model_memtest(url: str, token: str):
+def model_memtest(url: str):
     process = psutil.Process(os.getpid())
     memory_1 = process.memory_info().rss / (1024 * 1024)  # Convertir a MB
     print(f'antes de la prediccion: {memory_1}')
@@ -55,7 +55,7 @@ def model_memtest(url: str, token: str):
     tiempo = time.time() - start_time
     print("--- %s seconds ---" % (tiempo))
 
-    return {'memory_1': memory_1, 'memory_2':memory_2, 'size':img.size , "duration": tiempo }
+    return {'memory_1': memory_1, 'memory_2':memory_2, "duration": tiempo, "clarity": x, "engagement": y}
 
 
 

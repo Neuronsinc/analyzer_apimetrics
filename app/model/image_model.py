@@ -15,41 +15,44 @@ import os
 from typing import List
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
-
-
+import tracemalloc
+from scipy import fft
 
 class ImageCaracteristics:
 
     def extract_features(self, image):
+        tracemalloc.start()
         features = {}
 
         if image is None or image.size == 0:
             raise ValueError("Image is empty or None")
 
-        # Convertir a escala de grises una vez
+        # Convertir a escala de grises una vez  
         image_gris = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
         # Laplaciano
         laplaciano = cv2.Laplacian(image, cv2.CV_32F)
-        features['max_val_laplace'] = float(np.max(laplaciano))
-        features['desv_val_laplace'] = float(np.std(laplaciano))
+        features['max_val_laplace'] = np.int16(np.max(laplaciano))
+        features['desv_val_laplace'] = np.int16(np.std(laplaciano))
         del laplaciano
 
         # Contraste
-        features['contraste'] = float(np.std(image_gris))
+        features['contraste'] = np.int8(np.std(image_gris))
 
-        # Transformada de Fourier
-        f_transformada = np.fft.fft2(image)
-        f_shift = np.fft.fftshift(f_transformada)
+        f_transformada = fft.fft2(image)
+        #f_transformada = np.fft.fft2(image)
+        f_shift = fft.fftshift(f_transformada)
+        del f_transformada
         magnitud_espectro = 20 * np.log(np.abs(f_shift) + 1e-10)
-        features['max_val_fourier'] = float(np.max(magnitud_espectro))
-        features['media_fourier'] = float(np.mean(magnitud_espectro))
-        features['std_dev'] = float(np.std(magnitud_espectro))
-        del f_transformada, f_shift, magnitud_espectro
+        del f_shift
+        features['max_val_fourier'] = np.int16(np.max(magnitud_espectro))
+        features['media_fourier'] = np.int16(np.mean(magnitud_espectro))
+        features['std_dev'] = np.int16(np.std(magnitud_espectro))
+        del  magnitud_espectro
 
         # Textura GLCM
         glcm = graycomatrix(image_gris, [1], [0], levels=256, symmetric=True, normed=True)
-        features['textura'] = float(graycoprops(glcm, 'contrast')[0, 0])
+        features['textura'] = graycoprops(glcm, 'contrast')[0, 0]
 
         # Detectar características
         detector_caracteristicas = cv2.ORB_create()
@@ -61,21 +64,28 @@ class ImageCaracteristics:
         (B, G, R) = cv2.split(image.astype("float32"))
         rg = np.absolute(R - G)
         yb = np.absolute(0.5 * (R + G) - B)
+        del B,G,R
         (rbMean, rbStd) = (np.mean(rg), np.std(rg))
         (ybMean, ybStd) = (np.mean(yb), np.std(yb))
         stdRoot = np.sqrt((rbStd ** 2) + (ybStd ** 2))
-        meanRoot = np.sqrt((rbMean ** 2) + (rbMean ** 2))
-        features['colorfulness'] = float(stdRoot + (0.3 * meanRoot))
-        del B, G, R, rg, yb, rbMean, rbStd, ybMean, ybStd, stdRoot, meanRoot
+        meanRoot = np.sqrt((rbMean ** 2) + (ybMean ** 2))
+        del rbMean, rbStd, ybMean, ybStd, rg, yb
+        features['colorfulness'] = np.float16(stdRoot + (0.3 * meanRoot))
+        del stdRoot, meanRoot
 
         # Brillo
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-        features['brightness'] = float(hsv[..., 2].mean())
+        features['brightness'] = np.float16(hsv[..., 2].mean())
         del hsv
 
         # Variedad de colores
-        colores_unicos = np.unique(image.reshape(-1, image.shape[2]), axis=0)
-        features['variedad_colores'] = float(len(colores_unicos) / (image.shape[0] * image.shape[1]))
+        # imageshape = image.shape
+        # colores_unicos = np.unique(image.reshape(-1, imageshape[2]), axis=0)
+        # features['variedad_colores'] = float(len(colores_unicos) / (imageshape[0] * imageshape[1]))
+        pixels = image.reshape(-1, image.shape[2])
+        unique_colors = np.unique(pixels, axis=0)
+        features['variedad_colores'] = unique_colors.shape[0] / pixels.shape[0]
+        del pixels, unique_colors
 
         # Regiones
         _, imagen_binaria = cv2.threshold(image_gris, 128, 255, cv2.THRESH_BINARY)
@@ -85,12 +95,14 @@ class ImageCaracteristics:
 
         # LBP
         lbp = local_binary_pattern(image_gris, 8, 1, method="uniform")
-        hist, _ = np.histogram(lbp.ravel(), bins=np.arange(0, 8 + 3), range=(0, 8 + 2))
+        hist, _ = np.histogram(lbp.ravel(), bins=np.arange(0, 11), range=(0, 10))
         hist = hist.astype("float32")
         hist /= hist.sum()
-        features['var_lbp'] = float(np.var(hist))
+        features['var_lbp'] = np.float16(np.var(hist))
         del lbp, hist
-
+        current, peak = tracemalloc.get_traced_memory()
+        print(f"lbp Current memory usage is {current / 10**3}KB; Peak was {peak / 10**3}KB; Diff = {(peak - current) / 10**3}KB")        # Transformada de Fourier
+        tracemalloc.stop()
         return features
 
     def unify_features(self, features_list):
@@ -115,10 +127,7 @@ class ImageCaracteristics:
         return bloques
 
     def __init__(self, image_url):
-        print("imagen -----------------")
-        print(image_url)
         res = requests.get(image_url)
-        print(res)
         if res.status_code != 200:
             return None
 
@@ -128,8 +137,6 @@ class ImageCaracteristics:
         self.size_in_bytes = len(res.content)
         self.image_height, self.image_width = imagen.shape[:2]
 
-        print(f"imagen  {imagen}")
-        
         if imagen is None:
             raise ValueError("Failed to decode image")
 
@@ -158,7 +165,6 @@ class ImageCaracteristics:
             # Dividir la imagen en bloques
             bloques = np.array_split(imagen, N, axis=0)
             features_list = []
-            print(bloques)
             with ThreadPoolExecutor() as executor:
                 # Usar partial para fijar el primer argumento self
                 futures = [executor.submit(partial(self.extract_features), bloque) for bloque in bloques]
