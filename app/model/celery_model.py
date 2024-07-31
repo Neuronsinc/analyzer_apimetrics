@@ -21,6 +21,7 @@ from app.apis.feng.feng import analyze
 import redis
 import json
 import math
+import pprint
 
 
 #Configuración
@@ -76,7 +77,35 @@ def messagesRedis(message: dict, type: int, status: int):
             connection.publish('Fallados', json.dumps(message))
 
 
+@celery_app.task()
+def error_handler(request, exc, traceback):
+    task = request.task
+    task_name = task[task.rfind('.') + 1:len(task)]
+    data = request.args[0]
+    data_pp = pprint.pformat(data,  depth=2, width=40, indent=2)
 
+    print("=================================== AQUI EL FALLO =================================")
+    print('Task "{0}" raised exception: {1!r} \n with following args: {2} \n {3}'.format(task_name, exc, data_pp, traceback))
+
+    handleStatus(data.get("id_stimulus", ''), 3, data.get("analyzer_token", ''))
+
+    mi_objeto = {
+        'idUser': data.get("idUser", ''),
+        'idCompany': data.get("idCompany", ''),
+        'idLicense': data.get("idLicense", ''),
+        'idStimulus': data.get("id_stimulus", ''),
+        'token': data.get("analyzer_token", ''),
+        'idFolder': data.get("idFolder", ''),
+        'FolderName': data.get("FolderName", ''),
+        'StimulusName': data.get("StimulusName", ''),
+        'finish': "true" if 'feng' in task_name else "false"
+    }
+
+    messagesRedis(mi_objeto, 0, 1)
+    
+    # raise Exception(
+    #     detail="Something gone wrong analyzing your image at task {0}".format(task_name)
+    # )
 
 @celery_app.task
 def caracteristicas(data: dict):
@@ -87,37 +116,13 @@ def caracteristicas(data: dict):
     #             )
     # print(arequest)
     stimulus = get_stimulus(data["id_stimulus"], data["analyzer_token"])
-    try:
-        print('entreee a caracteristicaaaaasss')
-        img = ImageCaracteristics(stimulus.image_url)
-        data["clarity"] = img.clarity()
-        data["StimulusName"] = stimulus.filename
-        print(data)
-        print(f'claridad: {img.clarity()}, claridad en dict: {data["clarity"]}')
-        return data
-    except:
-        handleStatus(data["id_stimulus"], 3, data["analyzer_token"])
-
-        mi_objeto = {
-            'idUser': data["idUser"],
-            'idCompany': data["idCompany"],
-            'idLicense': data["idLicense"],
-            'idStimulus': data["id_stimulus"],
-            'token': data["analyzer_token"],
-            'idFolder': data["idFolder"],
-            'FolderName': data["FolderName"],
-            'StimulusName': stimulus.filename if hasattr(stimulus, 'filename') and stimulus.filename is not None else '',
-            'finish': "false"
-        }
-
-        messagesRedis(mi_objeto, 0, 1)
-
-        return "failed"
-    return "success"
+    img = ImageCaracteristics(stimulus.image_url)
+    data["clarity"] = img.clarity()
+    data["StimulusName"] = stimulus.filename
+    return data
 
 @celery_app.task
 def clarity_pred(data: dict):
-    print(f'diccionario que debe venir de caracteristicas =>> {data}')
     # feng.analyze_file()
     # arequest = ARequest(
     #             id_stimulus=data["id_stimulus"],
@@ -128,66 +133,40 @@ def clarity_pred(data: dict):
     #stimulus = get_stimulus(arequest.id_stimulus, arequest.analyzer_token)
     
     response = ""
-    try:
-        #img = ImageCaracteristics(stimulus.image_url)
-        # clarity = clarity_model_manager.get_prediction(stimulus.image_url) #clarity engagement
-        clarity = clarity_model_manager.get_clarity_prediction(data["clarity"]) #clarity engagement
-        print(clarity)
-        if clarity is not None:
-            response = {"clarity": str(clarity)}
-            print(response)
+    #img = ImageCaracteristics(stimulus.image_url)
+    # clarity = clarity_model_manager.get_prediction(stimulus.image_url) #clarity engagement
+    clarity = clarity_model_manager.get_clarity_prediction(data["clarity"]) #clarity engagement
+    # print(clarity)
+    if clarity is not None:
 
-            handleStatus(data["id_stimulus"], 1, data["analyzer_token"])
+        handleStatus(data["id_stimulus"], 1, data["analyzer_token"])
 
-            mi_objeto = { 
-            'idUser': data["idUser"],
-            'idCompany': data["idCompany"],
-            'idLicense': data["idLicense"],
-            'idStimulus': data["id_stimulus"],
-            'token': data["analyzer_token"],
-            'idFolder': data["idFolder"],
-            'FolderName': data["FolderName"],
-            'StimulusName': data["StimulusName"],
-            'finish': "false"
-            }
-
-            messagesRedis(mi_objeto, 0, 0)
-
-            #feng_analyze(arequest=arequest).apply_async()
-            data["clarity"] = clarity
-            del clarity
-            gc.collect()
-            return data
-        else:
-            del clarity
-            gc.collect()
-            raise Exception
-    except:
-        handleStatus(data["id_stimulus"], 3, data["analyzer_token"])
-
-        mi_objeto = {
-            'idUser': data["idUser"],
-            'idCompany': data["idCompany"],
-            'idLicense': data["idLicense"],
-            'idStimulus': data["id_stimulus"],
-            'token': data["analyzer_token"],
-            'idFolder': data["idFolder"],
-            'FolderName': data["FolderName"],
-            'StimulusName': data["StimulusName"],
-            'finish': "false"
+        mi_objeto = { 
+        'idUser': data["idUser"],
+        'idCompany': data["idCompany"],
+        'idLicense': data["idLicense"],
+        'idStimulus': data["id_stimulus"],
+        'token': data["analyzer_token"],
+        'idFolder': data["idFolder"],
+        'FolderName': data["FolderName"],
+        'StimulusName': data["StimulusName"],
+        'finish': "false"
         }
 
-        messagesRedis(mi_objeto, 0, 1)
+        messagesRedis(mi_objeto, 0, 0)
 
-        return "failed"
-        #return JSONResponse(content="failed", status_code=500)
-
-    return "success"
-
+        #feng_analyze(arequest=arequest).apply_async()
+        data["clarity"] = clarity
+        del clarity
+        gc.collect()
+        return data
+    else:
+        del clarity
+        gc.collect()
+        raise Exception("Something gone wrong analyzing your image by extracting clarity")
 
 @celery_app.task
 def feng_analyze(data: dict):
-    print(f'diccionario que debe venir de predicciones =>> {data}')
     cache = cache_manager.get_cache_instance()
     credentials = get_api_credentials(Apis.FENGUI.value, data["analyzer_token"], True, 0, cache)
     stimulus = get_stimulus(data["id_stimulus"], data["analyzer_token"])
@@ -207,65 +186,28 @@ def feng_analyze(data: dict):
     response = ""
     #model = model_manager.get_model_instance()
     #scaler = model_manager.scaler()
-    try:
-        response = analyze(stimulus, float(data["clarity"]), data["analyzer_token"], credentials)
+    # response = analyze(stimulus, float(data["clarity"]), data["analyzer_token"], credentials)
 
-        if "Successful" in response:
-            
-            handleStatus(data["id_stimulus"], 2, data["analyzer_token"])
+    if "Successful" in response:
+        
+        handleStatus(data["id_stimulus"], 2, data["analyzer_token"])
 
-            mi_objeto = { 
-            'idUser': data["idUser"],
-            'idCompany': data["idCompany"],
-            'idLicense': data["idLicense"],
-            'idStimulus': data["id_stimulus"],
-            'token': data["analyzer_token"],
-            'idFolder': data["idFolder"],
-            'FolderName': data["FolderName"],
-            'StimulusName': data["StimulusName"],
-            'finish': "true"
-            }
-
-            messagesRedis(mi_objeto, 0, 0)
-
-        else:
-            handleStatus(data["id_stimulus"], 3, data["analyzer_token"]) # fallo
-
-            mi_objeto = {
-                'idUser': data["idUser"],
-                'idCompany': data["idCompany"],
-                'idLicense': data["idLicense"],
-                'idStimulus': data["id_stimulus"],
-                'token': data["analyzer_token"],
-                'idFolder': data["idFolder"],
-                'FolderName': data["FolderName"],
-                'StimulusName': data["StimulusName"],
-                'finish': "true"
-            }
-
-            messagesRedis(mi_objeto, 0, 1)
-
-            return "failed"
-    except:
-        handleStatus(data["id_stimulus"], 3, data["analyzer_token"]) # fallo
-
-        mi_objeto = {
-            'idUser': data["idUser"],
-            'idCompany': data["idCompany"],
-            'idLicense': data["idLicense"],
-            'idStimulus': data["id_stimulus"],
-            'token': data["analyzer_token"],
-            'idFolder': data["idFolder"],
-            'FolderName': data["FolderName"],
-            'StimulusName': data["StimulusName"],
-            'finish': "true"
+        mi_objeto = { 
+        'idUser': data["idUser"],
+        'idCompany': data["idCompany"],
+        'idLicense': data["idLicense"],
+        'idStimulus': data["id_stimulus"],
+        'token': data["analyzer_token"],
+        'idFolder': data["idFolder"],
+        'FolderName': data["FolderName"],
+        'StimulusName': data["StimulusName"],
+        'finish': "true"
         }
 
-        messagesRedis(mi_objeto, 0, 1)
+        messagesRedis(mi_objeto, 0, 0)
 
-        return "failed"
-
-    return "success"
+    else:
+        raise Exception("Something gone wrong analyzing your image with Feng")
 
 # Procesar videos
 @celery_app.task
@@ -340,6 +282,10 @@ def procesar_video(data: dict):
     return 'failed'
     #return JSONResponse(content=data_v["result"], status_code=500)
 
+# def on_raw_message(body):
+#     print("====================AQUI EL BODY==========================")
+#     print(body)
+
 #workflow imagenes (Caracteristicas -> prediccion -> Feng)
 
 def pipeline(data: dict):
@@ -347,4 +293,10 @@ def pipeline(data: dict):
         caracteristicas.s(data).set(queue='caracteristicas') |
         clarity_pred.s().set(queue='prediccion') |
         feng_analyze.s().set(queue='feng')
-    ).apply_async()
+    ).apply_async(link_error=error_handler.s())
+
+    # try:
+    #     # print(result.get(on_message=on_raw_message))        
+    #     print(result.get())        
+    # except Exception as e:
+    #     print(f'Error en la ejecución de la cadena de tareas: {e}')
