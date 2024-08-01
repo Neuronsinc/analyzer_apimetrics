@@ -178,6 +178,7 @@ def clarity_pred(data: dict):
 
 @celery_app.task
 def feng_analyze(data: dict):
+    print("se inicializo el proceso de feng")
     cache = cache_manager.get_cache_instance()
     credentials = get_api_credentials(Apis.FENGUI.value, data["analyzer_token"], True, 0, cache)
     stimulus = get_stimulus(data["id_stimulus"], data["analyzer_token"])
@@ -300,12 +301,14 @@ def procesar_video(data: dict):
 #workflow imagenes (Caracteristicas -> prediccion -> Feng)
 
 if (os.getenv('WITH_FENG') == 'true'):
+    print("se inicializo el pipeline con feng")
     def pipeline(data: dict):
         chain(caracteristicas.s(data).set(queue='caracteristicas') |
             clarity_pred.s().set(queue='prediccion'),
             feng_analyze.s().set(queue='feng')
         ).apply_async(link_error=error_handler.s())
 else:
+    print("se inicializo el pipeline sin feng")
     def pipeline(data: dict):
         chain(caracteristicas.s(data).set(queue='caracteristicas') |
             clarity_pred.s().set(queue='prediccion')
