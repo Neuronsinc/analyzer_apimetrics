@@ -299,10 +299,18 @@ def procesar_video(data: dict):
 
 #workflow imagenes (Caracteristicas -> prediccion -> Feng)
 
-def pipeline(data: dict):
-    chain(caracteristicas.s(data).set(queue='caracteristicas') |
-        clarity_pred.s().set(queue='prediccion') 
-    ).apply_async(link_error=error_handler.s())
+if (os.getenv('WITH_FENG') == 'true'):
+    def pipeline(data: dict):
+        chain(caracteristicas.s(data).set(queue='caracteristicas') |
+            clarity_pred.s().set(queue='prediccion'),
+            feng_analyze.s().set(queue='feng')
+        ).apply_async(link_error=error_handler.s())
+else:
+    def pipeline(data: dict):
+        chain(caracteristicas.s(data).set(queue='caracteristicas') |
+            clarity_pred.s().set(queue='prediccion')
+        ).apply_async(link_error=error_handler.s())
+
 
     # try:
     #     # print(result.get(on_message=on_raw_message))        
@@ -311,5 +319,4 @@ def pipeline(data: dict):
     #     print(f'Error en la ejecución de la cadena de tareas: {e}')
 
 
-# feng_analyze.s().set(queue='feng')
 
