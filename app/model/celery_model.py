@@ -195,7 +195,7 @@ def feng_analyze(data: dict):
         return "failed"
 
     # response = ""
-    studySettings = {"study_name": data["title"], "study_type": "general", "content_type": "general", 'tasks[0]': 'focus', 'tasks[1]': 'clarity_score'}
+    studySettings = {"study_name": stimulus.title, "study_type": "general", "content_type": "general", 'tasks[0]': 'focus', 'tasks[1]': 'clarity_score'}
     response = analyze(stimulus, float(data["clarity"]), data["analyzer_token"], credentials)
 
     if "Successful" in response:
