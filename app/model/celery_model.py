@@ -194,11 +194,12 @@ def feng_analyze(data: dict):
         handleStatus(data["id_stimulus"], 3, data["analyzer_token"])
         return "failed"
 
-    # studySettings = {"study_name": getS["title"], "study_type": "general", "content_type": "general", 'tasks[0]': 'focus', 'tasks[1]': 'clarity_score'}
     # response = ""
-    #model = model_manager.get_model_instance()
-    #scaler = model_manager.scaler()
-    # response = analyze(stimulus, float(data["clarity"]), data["analyzer_token"], credentials)
+    studySettings = {"study_name": getS["title"], "study_type": "general", "content_type": "general", 'tasks[0]': 'focus', 'tasks[1]': 'clarity_score'}
+    # model = model_manager.get_model_instance()
+    # scaler = model_manager.scaler()
+
+    response = analyze(stimulus, float(data["clarity"]), data["analyzer_token"], credentials)
 
     if "Successful" in response:
         
