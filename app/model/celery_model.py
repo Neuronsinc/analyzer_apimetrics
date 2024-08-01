@@ -36,11 +36,12 @@ BACKEND_URL = os.getenv('REDIS_BACKEND_URL')
 # REDIS='troiatec-redis-master.redis.svc.cluster.local'
 # REDISPASSWORD = 'NdpyH5eyNB'
 
-REDIS_HOST = os.getenv('REDIS')
-REDIS_PASSWORD = os.getenv('REDIS_PASSWORD')
+# REDIS_HOST = os.getenv('REDIS')
+# REDIS_PASSWORD = os.getenv('REDIS_PASSWORD')
 
 # connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
-connection = redis.Redis(host=REDIS_HOST, username='', password=REDIS_PASSWORD)
+# connection = redis.Redis.from_url(host=REDIS_HOST, username='', password=REDIS_PASSWORD, port=6379)
+connection = redis.Redis.from_url(os.getenv('REDIS_URL'))
 
 #correr en windows celery (https://github.com/celery/celery/issues/4178#issuecomment-344176336):
 #python -m celery -A app.model.celery_model worker --pool=solo -l info
