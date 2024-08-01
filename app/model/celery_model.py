@@ -195,7 +195,7 @@ def feng_analyze(data: dict):
         return "failed"
 
     # studySettings = {"study_name": getS["title"], "study_type": "general", "content_type": "general", 'tasks[0]': 'focus', 'tasks[1]': 'clarity_score'}
-    response = ""
+    # response = ""
     #model = model_manager.get_model_instance()
     #scaler = model_manager.scaler()
     # response = analyze(stimulus, float(data["clarity"]), data["analyzer_token"], credentials)
