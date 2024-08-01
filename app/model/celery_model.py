@@ -33,12 +33,14 @@ import os
 BROKER_URL = os.getenv('REDIS_BROKER_URL')
 BACKEND_URL = os.getenv('REDIS_BACKEND_URL')
 
-REDIS='redis-14737.c274.us-east-1-3.ec2.cloud.redislabs.com'
-REDISPORT=14737
-REDISUSERNAME = 'default'
-REDISPASSWORD = 'sBiMwZAb2w1jmwGDIMmi7kx941ArAGXQ'
+# REDIS='troiatec-redis-master.redis.svc.cluster.local'
+# REDISPASSWORD = 'NdpyH5eyNB'
 
-connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
+REDIS_HOST = os.getenv('REDIS')
+REDIS_PASSWORD = os.getenv('REDIS_PASSWORD')
+
+# connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
+connection = redis.Redis(host=REDIS_HOST, username='', password=REDIS_PASSWORD)
 
 #correr en windows celery (https://github.com/celery/celery/issues/4178#issuecomment-344176336):
 #python -m celery -A app.model.celery_model worker --pool=solo -l info
