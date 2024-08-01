@@ -178,7 +178,7 @@ def clarity_pred(data: dict):
 
 @celery_app.task
 def feng_analyze(data: dict):
-    print("se inicializo el proceso de feng")
+    print(f'se inicio el proceso de Feng {data}')
     cache = cache_manager.get_cache_instance()
     credentials = get_api_credentials(Apis.FENGUI.value, data["analyzer_token"], True, 0, cache)
     stimulus = get_stimulus(data["id_stimulus"], data["analyzer_token"])
@@ -195,10 +195,7 @@ def feng_analyze(data: dict):
         return "failed"
 
     # response = ""
-    studySettings = {"study_name": getS["title"], "study_type": "general", "content_type": "general", 'tasks[0]': 'focus', 'tasks[1]': 'clarity_score'}
-    # model = model_manager.get_model_instance()
-    # scaler = model_manager.scaler()
-
+    studySettings = {"study_name": data["title"], "study_type": "general", "content_type": "general", 'tasks[0]': 'focus', 'tasks[1]': 'clarity_score'}
     response = analyze(stimulus, float(data["clarity"]), data["analyzer_token"], credentials)
 
     if "Successful" in response:
