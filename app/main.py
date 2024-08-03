@@ -13,8 +13,9 @@ from app.routes import engagement_route
 #from app.routes import openai_route
 
 
-from app.model.clarity_model import clarity_model_manager
-from app.model.engagement_model import engagement_model_manager
+# from app.model.clarity_model import clarity_model_manager
+# from app.model.engagement_model import engagement_model_manager
+
 from app.model.image_model import ImageCaracteristics
 
 import json

@@ -38,17 +38,17 @@ jobs:
         id: vars
         run: echo "GIT_COMMIT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: "Python Dockerfile"
-          push: true
-          tags: |
-            ${{ secrets.DOCKER_USERNAME }}/analyzer-metrics-python:latest
-            ${{ secrets.DOCKER_USERNAME }}/analyzer-metrics-python:${{ env.GIT_COMMIT }}
-          build-args: |
-            APP_VERSION=${{ env.GIT_COMMIT }}
+      # - name: Build and push Docker image
+      #   uses: docker/build-push-action@v4
+      #   with:
+      #     context: .
+      #     file: "Python Dockerfile"
+      #     push: true
+      #     tags: |
+      #       ${{ secrets.DOCKER_USERNAME }}/analyzer-metrics-python:latest
+      #       ${{ secrets.DOCKER_USERNAME }}/analyzer-metrics-python:${{ env.GIT_COMMIT }}
+      #     build-args: |
+      #       APP_VERSION=${{ env.GIT_COMMIT }}
 
           # cache-from: type=local,src=/tmp/.buildx-cache
           # cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
@@ -81,10 +81,10 @@ jobs:
           cd definitions/analyzer/k8s
           sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.GIT_COMMIT }}|g" metrics/staging/analyzer-metrics-deployment.yml
 
-          sed -i "s|image: ojrivera/analyzer-metrics-python:.*|image: ojrivera/analyzer-metrics-python:${{ env.GIT_COMMIT }}|g" metrics-celery/staging/analyzer-caracteristics-celery-deployment.yml
-          sed -i "s|image: ojrivera/analyzer-metrics-python:.*|image: ojrivera/analyzer-metrics-python:${{ env.GIT_COMMIT }}|g" metrics-celery/staging/analyzer-feng-celery-deployment.yml
-          sed -i "s|image: ojrivera/analyzer-metrics-python:.*|image: ojrivera/analyzer-metrics-python:${{ env.GIT_COMMIT }}|g" metrics-celery/staging/analyzer-prediction-celery-deployment.yml
-          sed -i "s|image: ojrivera/analyzer-metrics-python:.*|image: ojrivera/analyzer-metrics-python:${{ env.GIT_COMMIT }}|g" metrics-celery/staging/analyzer-vids-celery-deployment.yml
+          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.GIT_COMMIT }}|g" metrics-celery/staging/analyzer-caracteristics-celery-deployment.yml
+          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.GIT_COMMIT }}|g" metrics-celery/staging/analyzer-feng-celery-deployment.yml
+          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.GIT_COMMIT }}|g" metrics-celery/staging/analyzer-prediction-celery-deployment.yml
+          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.GIT_COMMIT }}|g" metrics-celery/staging/analyzer-vids-celery-deployment.yml
 
           git config --global init.defaultBranch main
           git config --global user.name 'github-actions[bot]'
