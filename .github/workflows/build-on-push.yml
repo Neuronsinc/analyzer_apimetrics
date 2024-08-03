@@ -50,8 +50,8 @@ jobs:
           build-args: |
             APP_VERSION=${{ env.GIT_COMMIT }}
 
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
+          # cache-from: type=local,src=/tmp/.buildx-cache
+          # cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
