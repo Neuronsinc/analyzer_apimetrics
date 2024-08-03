@@ -32,7 +32,7 @@ connection = redis.Redis.from_url(os.getenv('REDIS_URL'))
 
 
 celery_app = Celery(
-    'apimetrics',
+    f'apimetrics-{os.getenv("BACKEND")}',
     broker= BROKER_URL,
     backend= BACKEND_URL
 )

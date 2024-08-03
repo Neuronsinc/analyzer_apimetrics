@@ -42,12 +42,7 @@ def comprimir_imagen(file):
 
 
 @router.post('/Analyzer/Stimulus')
-<<<<<<< HEAD
-# def data(t: Request, file: UploadFile = File(...), id_folder: str = Form(), id_father: str = Form()):
-def data(t: Request, file: UploadFile = File(...), id_folder: str = Form()):
-=======
 def data(background_tasks: BackgroundTasks, t: Request, file: UploadFile = File(...), id_folder: str = Form(), idUser: str = Form(), idCompany: str = Form(), idLicense: str = Form(), FolderName: str = Form(), idUserAnalyzer: str = Form()):
->>>>>>> feature-extraction
     token = t.headers.get('Authorization')
     print(f'id_folder {id_folder}')
 

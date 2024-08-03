@@ -35,11 +35,6 @@
 #     try:
 #         recommendations_collection = pymongo_client.get_database("analyzer").get_collection("recommendations")
 
-<<<<<<< HEAD
-        error_recs = {
-            "status": 5,
-        }
-=======
 #         error_recs = {
 #             "stimulus_id": stimulus.stimulus_id,
 #             "folder_id": stimulus.folder_id,
@@ -48,7 +43,6 @@
 #             "benchmark": stimulus.benchmark,
 #             "status": 5,
 #         }
->>>>>>> feature-extraction
 
 #         inserted_recs = recommendations_collection.insert_one(
 #             {
@@ -104,48 +98,6 @@
 #                 status=4,
 #             )
 
-<<<<<<< HEAD
-            recommendations_collection.update_one(
-                {"_id": ObjectId(inserted_recs.inserted_id)},
-                {
-                    "$set": {
-                        "stimulus_id": stimulus.stimulus_id,
-                        "folder_id": stimulus.folder_id,
-                        "recommendations": [r.dict() for r in recommendations],
-                        "image_url": stimulus.image_url,
-                        "benchmark": stimulus.benchmark,
-                        "status": 4,
-                    }
-                },
-            )
-            return stimulus_recs
-        elif run.status == "failed":
-            print(run.last_error.code)
-            recommendations_collection.update_one(
-                {"_id": ObjectId(inserted_recs.inserted_id)},
-                {"$set": error_recs},
-            )
-            raise HTTPException(status_code=307, detail=f"OpenAI Error: {run.last_error.code}")
-
-    except OpenAIError as e:
-        recommendations_collection.update_one(
-            {"_id": ObjectId(inserted_recs.inserted_id)},
-            {"$set": error_recs},
-        )
-        raise HTTPException(status_code=500, detail=f"OpenAI Error: {e}")
-    except ValidationError as e:
-        recommendations_collection.update_one(
-            {"_id": ObjectId(inserted_recs.inserted_id)},
-            {"$set": error_recs},
-        )
-        raise HTTPException(status_code=400, detail=f"Validation Error: {e.json()}")
-    except ValueError as e:
-        recommendations_collection.update_one(
-            {"_id": ObjectId(inserted_recs.inserted_id)},
-            {"$set": error_recs},
-        )
-        raise HTTPException(status_code=500, detail=f"ValueError: {e}")
-=======
 #             recommendations_collection.update_one(
 #                 {"_id": ObjectId(inserted_recs.inserted_id)},
 #                 {
@@ -186,7 +138,6 @@
 #             {"$set": error_recs},
 #         )
 #         raise HTTPException(status_code=500, detail=f"ValueError: {e}")
->>>>>>> feature-extraction
     
 
 # @router.get("/recommendation/stimulus/{stimulus_id}")
