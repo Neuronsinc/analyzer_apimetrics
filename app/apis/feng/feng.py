@@ -29,7 +29,8 @@ import datetime
 # x = model.predict(input_array)
 # print(x)
 
-BACKEND = 'https://analyzerapi.troiatec.com'
+# BACKEND = 'https://analyzerapiv3.troiatec.com'
+BACKEND = os.getenv('BACKEND')
 #BACKEND = 'http://localhost/Analyzer/Predict_Analyzer_Back'
 client = pymongo.MongoClient('172.17.0.1:27017')
 
@@ -154,7 +155,7 @@ def analyze(stimulus: Stimulus, clarity: float, token: str, credentials:ApiCrede
         for i, archivo in enumerate(namesMap):
             archivos_enviar[f'archivo{i}'] = open(namesMap[archivo], 'rb')
 
-        headers = {'Authorization': f'Bearer {token}'}
+        headers = {'Authorization': f'{token}'}
         url_upload = f'{BACKEND}/Stimulus/SaveAndUploadMaps'
         r = requests.post(url=url_upload, files=archivos_enviar ,data=data, headers=headers)
         jsonResponse = r.json()
@@ -167,7 +168,7 @@ def analyze(stimulus: Stimulus, clarity: float, token: str, credentials:ApiCrede
 
             
         data = {'api': Apis.FENGUI.value} #identificar que el 3 es la metrica de feng
-        headers = {'Authorization': f'Bearer {token}'}
+        headers = {'Authorization': f'{token}'}
 
         url_metrics = f'{BACKEND}/Stimulus/getApiMetrics'
         ApiMetrics = requests.post(url=url_metrics ,data=data, headers=headers)
@@ -208,7 +209,7 @@ def analyze(stimulus: Stimulus, clarity: float, token: str, credentials:ApiCrede
         if userCreation != None:
             data["userCreation"]= userCreation
 
-        headers = {'Authorization': f'Bearer {token}'}
+        headers = {'Authorization': f'{token}'}
         url_add_score = f'{BACKEND}/Stimulus/AddAllScores'
         r = requests.post(url=url_add_score, data=data, headers=headers)
         jsonResponse = r.json()
@@ -226,7 +227,7 @@ def analyze(stimulus: Stimulus, clarity: float, token: str, credentials:ApiCrede
             if userCreation != None:
                 data["userCreation"] = userCreation
 
-            headers = {'Authorization': f'Bearer {token}'}
+            headers = {'Authorization': f'{token}'}
             r = requests.post(url=f"{BACKEND}/Stimulus/InsertAllAois",data=data, headers=headers)
             jsonResponse = r.json()
 
@@ -396,7 +397,7 @@ def sendMail(id: str, vidName: str, folderName: str, token: str, tipo: str):
 
 def handleStatus(idStimulus, status, token: str):
     data = {'id': idStimulus, 'status': status, 'error': ""}
-    headers = {'Authorization': f'Bearer {token}'}
+    headers = {'Authorization': f'{token}'} #se quito bearer ya que ya lo trae
     url = f'{BACKEND}/Stimulus/handleStatus'
     requests.post(url=url, data=data, headers=headers)
     return "true"

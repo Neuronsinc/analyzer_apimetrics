@@ -13,91 +13,192 @@ import psutil
 import os
 
 from typing import List
-
-
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import partial
+import tracemalloc
+from scipy import fft
 
 class ImageCaracteristics:
 
-    def __init__(self, image_url):
-        print("imagen -----------------")
-        print(image_url)
-        res = requests.get(image_url)
-        print(res)
-        if res.status_code != 200:
-            return None
+    def extract_features(self, image):
+        tracemalloc.start()
+        features = {}
 
-        self.size = len(res.content)
-        image_bytes = BytesIO(res.content)
-        imagen = cv2.imdecode(np.frombuffer(image_bytes.read(), np.uint8), cv2.IMREAD_COLOR)
+        if image is None or image.size == 0:
+            raise ValueError("Image is empty or None")
 
-        laplaciano = cv2.Laplacian(imagen, cv2.CV_64F)
-        self.max_val_laplace = np.max(laplaciano)
-        self.desv_val_laplace = np.std(laplaciano)
+        # Convertir a escala de grises una vez  
+        image_gris = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        imagen_gris = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
-        self.contraste = np.std(imagen_gris)
+        # Laplaciano
+        laplaciano = cv2.Laplacian(image, cv2.CV_32F)
+        features['max_val_laplace'] = np.int16(np.max(laplaciano))
+        features['desv_val_laplace'] = np.int16(np.std(laplaciano))
+        del laplaciano
 
-        f_transformada = np.fft.fft2(imagen)
-        f_shift = np.fft.fftshift(f_transformada)
+        # Contraste
+        features['contraste'] = np.int8(np.std(image_gris))
+
+        f_transformada = fft.fft2(image)
+        #f_transformada = np.fft.fft2(image)
+        f_shift = fft.fftshift(f_transformada)
+        del f_transformada
         magnitud_espectro = 20 * np.log(np.abs(f_shift) + 1e-10)
-        self.max_val_fourier = np.max(magnitud_espectro)  
-        self.media_fourier = np.mean(magnitud_espectro)  
+        del f_shift
+        features['max_val_fourier'] = np.int16(np.max(magnitud_espectro))
+        features['media_fourier'] = np.int16(np.mean(magnitud_espectro))
+        features['std_dev'] = np.int16(np.std(magnitud_espectro))
+        del  magnitud_espectro
 
+        # Textura GLCM
+        glcm = graycomatrix(image_gris, [1], [0], levels=256, symmetric=True, normed=True)
+        features['textura'] = graycoprops(glcm, 'contrast')[0, 0]
 
-        self.std_dev = np.std(magnitud_espectro)
-
-        glcm = graycomatrix(imagen_gris, [1], [0], levels=256, symmetric=True, normed=True)
-        self.textura = graycoprops(glcm, 'contrast')[0, 0]
-
+        # Detectar características
         detector_caracteristicas = cv2.ORB_create()
-        puntos_clave, descriptores = detector_caracteristicas.detectAndCompute(imagen_gris, None)
-        self.num_caracteristicas = len(puntos_clave)
+        puntos_clave, descriptores = detector_caracteristicas.detectAndCompute(image_gris, None)
+        features['num_caracteristicas'] = len(puntos_clave)
+        del puntos_clave, descriptores
 
-        (B, G, R) = cv2.split(imagen.astype("float"))
+        # Colorfulness
+        (B, G, R) = cv2.split(image.astype("float32"))
         rg = np.absolute(R - G)
         yb = np.absolute(0.5 * (R + G) - B)
+        del B,G,R
         (rbMean, rbStd) = (np.mean(rg), np.std(rg))
         (ybMean, ybStd) = (np.mean(yb), np.std(yb))
         stdRoot = np.sqrt((rbStd ** 2) + (ybStd ** 2))
         meanRoot = np.sqrt((rbMean ** 2) + (ybMean ** 2))
-        self.colorfulness = stdRoot + (0.3 * meanRoot)
+        del rbMean, rbStd, ybMean, ybStd, rg, yb
+        features['colorfulness'] = np.float16(stdRoot + (0.3 * meanRoot))
+        del stdRoot, meanRoot
 
-        hsv = cv2.cvtColor(imagen, cv2.COLOR_BGR2HSV)
-        self.brightness = hsv[...,2].mean()
+        # Brillo
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        features['brightness'] = np.float16(hsv[..., 2].mean())
+        del hsv
 
-        colores_unicos = np.unique(imagen.reshape(-1, imagen.shape[2]), axis=0)
-        self.variedad_colores = len(colores_unicos) / (imagen.shape[0] * imagen.shape[1])
+        # Variedad de colores
+        # imageshape = image.shape
+        # colores_unicos = np.unique(image.reshape(-1, imageshape[2]), axis=0)
+        # features['variedad_colores'] = float(len(colores_unicos) / (imageshape[0] * imageshape[1]))
+        pixels = image.reshape(-1, image.shape[2])
+        unique_colors = np.unique(pixels, axis=0)
+        features['variedad_colores'] = unique_colors.shape[0] / pixels.shape[0]
+        del pixels, unique_colors
 
-        _, imagen_binaria = cv2.threshold(imagen_gris, 128, 255, cv2.THRESH_BINARY)
+        # Regiones
+        _, imagen_binaria = cv2.threshold(image_gris, 128, 255, cv2.THRESH_BINARY)
         contornos, _ = cv2.findContours(imagen_binaria, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        self.regiones = len(contornos)
+        features['regiones'] = len(contornos)
+        del imagen_binaria, contornos
 
-        lbp = local_binary_pattern(imagen_gris, 8, 1, method="uniform")
-        (hist, _) = np.histogram(lbp.ravel(),
-            bins=np.arange(0, 8 + 3),
-            range=(0, 8 + 2))
-        hist = hist.astype("float")
-        hist /= (hist.sum())
-        self.var_lbp = np.var(hist)
+        # LBP
+        lbp = local_binary_pattern(image_gris, 8, 1, method="uniform")
+        hist, _ = np.histogram(lbp.ravel(), bins=np.arange(0, 11), range=(0, 10))
+        hist = hist.astype("float32")
+        hist /= hist.sum()
+        features['var_lbp'] = np.float16(np.var(hist))
+        del lbp, hist
+        current, peak = tracemalloc.get_traced_memory()
+        print(f"lbp Current memory usage is {current / 10**3}KB; Peak was {peak / 10**3}KB; Diff = {(peak - current) / 10**3}KB")        # Transformada de Fourier
+        tracemalloc.stop()
+        return features
 
+    def unify_features(self, features_list):
+        unified_features = {}
+        for key in features_list[0].keys():
+            unified_features[key] = np.median([f[key] for f in features_list])
+        return unified_features
+
+    def divide_imagen_en_bloques_iguales(imagen, L):
+        alto, ancho, canales = imagen.shape
+        tamano_bloque_alto = alto // L
+        tamano_bloque_ancho = ancho // L
+        
+        bloques = []
+        
+        for i in range(L):
+            for j in range(L):
+                bloque = imagen[i*tamano_bloque_alto:(i+1)*tamano_bloque_alto,
+                                j*tamano_bloque_ancho:(j+1)*tamano_bloque_ancho]
+                bloques.append(bloque)
+        
+        return bloques
+
+    def __init__(self, image_url):
+        res = requests.get(image_url)
+        if res.status_code != 200:
+            return None
+
+        # self.size = len(res.content)
+        image_bytes = BytesIO(res.content)
+        imagen = cv2.imdecode(np.frombuffer(image_bytes.read(), np.uint8), cv2.IMREAD_COLOR)
+        self.size_in_bytes = len(res.content)
+        self.image_height, self.image_width = imagen.shape[:2]
+
+        if imagen is None:
+            raise ValueError("Failed to decode image")
+
+        # print(len(res.content))
+        # N = len(res.content) / 40
+        #porcentaje_bloques_altura = 0.01
+        #print(f'multiplicacion =>> {int(imagen.shape[0] * porcentaje_bloques_altura)}')
+        #N = 4 # ver en dependencia de tamaño 300kb para abajo dejar en 1
+        # features = self.extract_features(imagen)
+        # print(f'fokin features =>>> {features}')
+        #N = int(imagen.shape[0] * porcentaje_bloques_altura)
+        #N = max(1, int(imagen.shape[0] * porcentaje_bloques_altura))
+        N = 1
+        # N = ""
+
+        # if N_param == "size":
+        #     bytes_per_block = 100 * 1024  # Asumir que un bloque razonable tiene 100KB
+        #     N = max(1, int(self.size_in_bytes / bytes_per_block))
+        # elif N_param == "dimensions":
+        #     min_block_size_pixels = 100 * 100  # Tamaño mínimo del bloque en píxeles
+        #     N = max(1, int(self.image_height * self.image_width / min_block_size_pixels))
+        # else:
+        #     N = N_param
+
+        try:
+            # Dividir la imagen en bloques
+            bloques = np.array_split(imagen, N, axis=0)
+            features_list = []
+            with ThreadPoolExecutor() as executor:
+                # Usar partial para fijar el primer argumento self
+                futures = [executor.submit(partial(self.extract_features), bloque) for bloque in bloques]
+                for future in as_completed(futures):
+                    try:
+                        result = future.result()
+                        features_list.append(result)
+                    except Exception as e:
+                        print(f"Error processing block: {e}")
+
+            self.unified_features = self.unify_features(features_list)
+        except Exception as e:
+            print(f"Error during feature extraction: {e}")
 
     # ["max_laplace", "contraste", "max_fourier", "desviacion_fourier", "textura", "numCarac", "colorfulness", "brightness"]
     def clarity(self) -> List[float]:
-        return [self.max_val_laplace 
-                    , self.contraste 
-                    , self.max_val_fourier
-                    , self.std_dev
-                    , self.textura
-                    , self.num_caracteristicas
-                    , self.colorfulness
-                    , self.brightness]
+        return [self.unified_features["max_val_laplace"],
+                self.unified_features["contraste"],
+                self.unified_features["max_val_fourier"],
+                self.unified_features["std_dev"],
+                self.unified_features["textura"],
+                self.unified_features["num_caracteristicas"],
+                self.unified_features["colorfulness"],
+                self.unified_features["brightness"]]
 
     def engagement(self) -> List[float]:
-        return [self.colorfulness
-          , self.variedad_colores
-          , self.media_fourier
-          , self.regiones
-          , self.contraste
-          , self.var_lbp
-          , self.brightness
-          , self.desv_val_laplace]
+        return [self.unified_features["colorfulness"],
+                self.unified_features["variedad_colores"],
+                self.unified_features["media_fourier"],
+                self.unified_features["regiones"],
+                self.unified_features["contraste"],
+                self.unified_features["var_lbp"],
+                self.unified_features["brightness"],
+                self.unified_features["desv_val_laplace"]]
+
+    def get_meta_datos(self):
+        return self.size_in_bytes, self.image_height, self.image_width

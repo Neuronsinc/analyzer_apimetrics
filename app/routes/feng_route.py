@@ -1,6 +1,7 @@
 from fastapi import APIRouter, File, UploadFile
 from fastapi.responses import JSONResponse
 from typing import List
+import os
 
 import shutil
 from app.apis.feng.feng import analyze
@@ -125,7 +126,8 @@ def data(arequest: VRequest):
 
         cache_manager.extract_credits(credentials.name, total_creditos_videos)
 
-        connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
+        # connection = redis.Redis.from_url(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
+        connection = redis.Redis.from_url(os.getenv('REDIS_URL'))
         # Objeto Python a  almacenar en Redis
         mi_objeto = {
         'videoID': data["result"], 
@@ -163,8 +165,9 @@ def data(arequest: RedisReq):
     vids = getAndSaveVids(stimulus, arequest.token, credentials, arequest.videoID)
 
     if (csv == "Successful" and vids == "Successful"):
-        connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
-
+        # connection = redis.Redis.from_url(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
+        connection = redis.Redis.from_url(os.getenv('REDIS_URL'))
+        #idUser es ahora el id de Babel.
         mi_objeto = {
             'videoID': arequest.videoID, 
             'idUser': arequest.idUser,
@@ -179,9 +182,10 @@ def data(arequest: RedisReq):
         handleStatus(mi_objeto["idStimulus"], 2, mi_objeto['token'])
         connection.lpush('Analizados', json.dumps(mi_objeto))
         connection.publish('Analizados', json.dumps(mi_objeto))
-        sendMail(mi_objeto['idUser'], mi_objeto['StimulusName'], mi_objeto['FolderName'], mi_objeto['token'], "0")
+        sendMail(arequest.idUserAnalyzer, mi_objeto['StimulusName'], mi_objeto['FolderName'], mi_objeto['token'], "0")
     else:
-        connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
+        # connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
+        connection = redis.Redis.from_url(os.getenv('REDIS_URL'))
 
         mi_objeto = {
         'videoID': arequest.videoID, 
@@ -197,6 +201,6 @@ def data(arequest: RedisReq):
         handleStatus(mi_objeto["idStimulus"], 3, mi_objeto['token'])
         connection.lpush('Fallados', json.dumps(mi_objeto))
         connection.publish('Fallados', json.dumps(mi_objeto))
-        sendMail(mi_objeto['idUser'], mi_objeto['StimulusName'], mi_objeto['FolderName'], mi_objeto['token'], "1")
+        sendMail(arequest.idUserAnalyzer, mi_objeto['StimulusName'], mi_objeto['FolderName'], mi_objeto['token'], "1")
     
     return "ok"

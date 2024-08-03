@@ -14,9 +14,9 @@ from app.model.cache_model import cache_manager
 
 
 
-BACKEND = 'https://analyzerapi.troiatec.com'
+# BACKEND = 'https://analyzerapiv3.troiatec.com'
 #BACKEND = 'http://localhost/Analyzer/Predict_Analyzer_Back/'
-# BACKEND = os.getenv('BACKEND')
+BACKEND = os.getenv('BACKEND')
 
 def seleccionar_cuenta(cuentas, type, duration = 1):
     """
@@ -80,7 +80,7 @@ def get_api_credentials(api, token, check, type = 0, cache = None, duration = 1,
         if cache is None:
             print("=============entre a no cache ===========")
             data = {'api': api}
-            headers = {'Authorization': f'Bearer {token}'}
+            headers = {'Authorization': f'{token}'}
             # headers = {'Authorization': f'{token}'}
 
             request_credentials = requests.post(url= f'{BACKEND}/Stimulus/getApiCredentials' ,data=data, headers=headers)
@@ -182,7 +182,7 @@ def get_api_credentials(api, token, check, type = 0, cache = None, duration = 1,
                 return None
         else:    
             data = {'api': api}
-            headers = {'Authorization': f'Bearer {token}'}
+            headers = {'Authorization': f'{token}'}
             # headers = {'Authorization': f'{token}'}
 
             request_credentials = requests.post(url= f'{BACKEND}/Stimulus/getApiCredentials' ,data=data, headers=headers)
@@ -243,7 +243,7 @@ def get_stimulus(stimulus_id: str, analyzer_token: str) -> Stimulus:
     if not(len(stimulus_id) == 0):
 
         data = {'idStimulus': stimulus_id} 
-        headers = {'Authorization': f'Bearer {analyzer_token}'}
+        headers = {'Authorization': f'{analyzer_token}'}
 
         response_stimulus = requests.post(url= f'{BACKEND}/Stimulus/getStimulusUrl',data=data, headers=headers)
         print("contenido del getstimulusrul")

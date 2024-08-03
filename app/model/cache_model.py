@@ -2,6 +2,7 @@
 import redis
 import json
 import time
+import os
 
 REDIS='redis-14737.c274.us-east-1-3.ec2.cloud.redislabs.com'
 REDISPORT=14737
@@ -11,7 +12,8 @@ CLAVE = "CREDITOS"
 class CacheManager:
     def __init__(self):
         #self.cache = TTLCache(maxsize=1000, ttl=10800) # expiramos el cache en 3 horas
-        self.cache = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
+        # self.cache = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
+        self.cache = redis.Redis.from_url(os.getenv('REDIS_URL'))
 
     def get_cache_instance(self):
         json_arreglo = self.cache.get(CLAVE)

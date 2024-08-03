@@ -3,8 +3,9 @@ import os
 from os import remove
 from datetime import datetime
 
-BACKEND = 'https://analyzerapi.troiatec.com'
+# BACKEND = 'https://analyzerapiv3.troiatec.com'
 #BACKEND = 'http://localhost/Analyzer/Predict_Analyzer_Back/'
+os.getenv('BACKEND')
 
 RootPath = os.getenv('ROOT')
 

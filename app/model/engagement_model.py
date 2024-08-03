@@ -67,4 +67,7 @@ def get_model_manager():
 
 # Singleton pattern para garantizar una sola instancia del modelo
 #model_manager = get_model_manager()
-engagement_model_manager = EngagementModelManager()
+if(os.getenv('LOAD_ENGAGEMENT_MODEL') == 'true'):
+    engagement_model_manager = EngagementModelManager()
+else:
+    engagement_model_manager = None
