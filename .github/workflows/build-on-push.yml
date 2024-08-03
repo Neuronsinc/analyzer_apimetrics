@@ -78,7 +78,7 @@ jobs:
 
       - name: Update Kubernetes YAML
         run: |
-          cd definitions/analyzer_apimetrics/k8s
+          cd definitions/analyzer/k8s
           sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.GIT_COMMIT }}|g" metrics/staging/analyzer-metrics-deployment.yml
 
           sed -i "s|image: ojrivera/analyzer-metrics-python:.*|image: ojrivera/analyzer-metrics-python:${{ env.GIT_COMMIT }}|g" metrics-celery/staging/analyzer-caracteristics-celery-deployment.yml
