@@ -42,6 +42,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
+          file: "Python Dockerfile"
           push: true
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/analyzer-metrics-python:latest
@@ -56,6 +57,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
+          file: "Tensorflow Dockerfile"
           push: true
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/analyzer-metrics-tensorflow:latest
