@@ -284,14 +284,14 @@ if (os.getenv('WITH_FENG') == 'true'):
     print("se inicializo el pipeline con feng")
     def pipeline(data: dict):
         chain(
-            caracteristicas.s(data).set(queue=f'caracteristicas-{os.getenv('ENVIRONMENT')}') |
-            clarity_pred.s().set(queue=f'prediccion-{os.getenv('ENVIRONMENT')}'),
-            feng_analyze.s().set(queue=f'feng-{os.getenv('ENVIRONMENT')}')
+            caracteristicas.s(data).set(queue=f'caracteristicas-{os.getenv("ENVIRONMENT")}') |
+            clarity_pred.s().set(queue=f'prediccion-{os.getenv("ENVIRONMENT")}'),
+            feng_analyze.s().set(queue=f'feng-{os.getenv("ENVIRONMENT")}')
         ).apply_async(link_error=error_handler.s())
 else:
     print("se inicializo el pipeline sin feng")
     def pipeline(data: dict):
         chain(
-            caracteristicas.s(data).set(queue=f'caracteristicas-{os.getenv('ENVIRONMENT')}') |
-            clarity_pred.s().set(queue=f'prediccion-{os.getenv('ENVIRONMENT')}'),
+            caracteristicas.s(data).set(queue=f'caracteristicas-{os.getenv("ENVIRONMENT")}') |
+            clarity_pred.s().set(queue=f'prediccion-{os.getenv("ENVIRONMENT")}'),
         ).apply_async(link_error=error_handler.s())
