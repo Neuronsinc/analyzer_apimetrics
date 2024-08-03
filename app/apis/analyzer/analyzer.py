@@ -14,9 +14,9 @@ from app.model.cache_model import cache_manager
 
 
 
-BACKEND = 'https://analyzerapiv3.troiatec.com'
+# BACKEND = 'https://analyzerapiv3.troiatec.com'
 #BACKEND = 'http://localhost/Analyzer/Predict_Analyzer_Back/'
-# BACKEND = os.getenv('BACKEND')
+BACKEND = os.getenv('BACKEND')
 
 def seleccionar_cuenta(cuentas, type, duration = 1):
     """

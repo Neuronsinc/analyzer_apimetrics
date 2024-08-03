@@ -25,26 +25,11 @@ import pprint
 
 import os
 
-
-#Configuración
-# BROKER_URL = 'redis://localhost:6379/0'
-# BACKEND_URL = 'redis://localhost:6379/0'
-
 BROKER_URL = os.getenv('REDIS_BROKER_URL')
 BACKEND_URL = os.getenv('REDIS_BACKEND_URL')
 
-# REDIS='troiatec-redis-master.redis.svc.cluster.local'
-# REDISPASSWORD = 'NdpyH5eyNB'
-
-# REDIS_HOST = os.getenv('REDIS')
-# REDIS_PASSWORD = os.getenv('REDIS_PASSWORD')
-
-# connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
-# connection = redis.Redis.from_url(host=REDIS_HOST, username='', password=REDIS_PASSWORD, port=6379)
 connection = redis.Redis.from_url(os.getenv('REDIS_URL'))
 
-#correr en windows celery (https://github.com/celery/celery/issues/4178#issuecomment-344176336):
-#python -m celery -A app.model.celery_model worker --pool=solo -l info
 
 celery_app = Celery(
     'apimetrics',
@@ -70,7 +55,7 @@ def messagesRedis(message: dict, type: int, status: int):
         - 1 -> Fallido
     """
     if (type == 0):
-        if (status == 0): 
+        if (status == 0):
             connection.lpush('AnalizadosImg', json.dumps(message))
             connection.publish('AnalizadosImg', json.dumps(message))
         else:
@@ -110,10 +95,7 @@ def error_handler(request, exc, traceback):
     }
 
     messagesRedis(mi_objeto, 0, 1)
-    
-    # raise Exception(
-    #     detail="Something gone wrong analyzing your image at task {0}".format(task_name)
-    # )
+
 
 @celery_app.task
 def caracteristicas(data: dict):
@@ -142,7 +124,7 @@ def clarity_pred(data: dict):
     #             )
     # print(arequest)
     #stimulus = get_stimulus(arequest.id_stimulus, arequest.analyzer_token)
-    
+
     response = ""
     #img = ImageCaracteristics(stimulus.image_url)
     # clarity = clarity_model_manager.get_prediction(stimulus.image_url) #clarity engagement
@@ -152,7 +134,7 @@ def clarity_pred(data: dict):
 
         handleStatus(data["id_stimulus"], 1, data["analyzer_token"])
 
-        mi_objeto = { 
+        mi_objeto = {
         'idUser': data["idUser"],
         'idCompany': data["idCompany"],
         'idLicense': data["idLicense"],
@@ -199,10 +181,10 @@ def feng_analyze(data: dict):
     response = analyze(stimulus, float(data["clarity"]), data["analyzer_token"], credentials)
 
     if "Successful" in response:
-        
+
         handleStatus(data["id_stimulus"], 2, data["analyzer_token"])
 
-        mi_objeto = { 
+        mi_objeto = {
         'idUser': data["idUser"],
         'idCompany': data["idCompany"],
         'idLicense': data["idLicense"],
@@ -251,7 +233,7 @@ def procesar_video(data: dict):
 
         # Objeto Python a  almacenar en Redis
         mi_objeto = {
-        'videoID': data_v["result"], 
+        'videoID': data_v["result"],
         'idUser': data["idUser"],
         'idCompany': data["idCompany"],
         'idLicense': data["idLicense"],
@@ -269,11 +251,11 @@ def procesar_video(data: dict):
 
         return 'success'
         #return JSONResponse(content=data_v["result"], status_code=200)
-    
+
     handleStatus(data["id_stimulus"], 3, data["analyzer_token"])
 
     mi_objeto = {
-        'videoID': data_v.get("result", ''), 
+        'videoID': data_v.get("result", ''),
         'idUser': data["idUser"],
         'idCompany': data["idCompany"],
         'idLicense': data["idLicense"],
@@ -301,23 +283,15 @@ def procesar_video(data: dict):
 if (os.getenv('WITH_FENG') == 'true'):
     print("se inicializo el pipeline con feng")
     def pipeline(data: dict):
-        chain(caracteristicas.s(data).set(queue='caracteristicas') |
-            clarity_pred.s().set(queue='prediccion'),
-            feng_analyze.s().set(queue='feng')
+        chain(
+            caracteristicas.s(data).set(queue=f'caracteristicas-{os.getenv('ENVIRONMENT')}') |
+            clarity_pred.s().set(queue=f'prediccion-{os.getenv('ENVIRONMENT')}'),
+            feng_analyze.s().set(queue=f'feng-{os.getenv('ENVIRONMENT')}')
         ).apply_async(link_error=error_handler.s())
 else:
     print("se inicializo el pipeline sin feng")
     def pipeline(data: dict):
-        chain(caracteristicas.s(data).set(queue='caracteristicas') |
-            clarity_pred.s().set(queue='prediccion')
+        chain(
+            caracteristicas.s(data).set(queue=f'caracteristicas-{os.getenv('ENVIRONMENT')}') |
+            clarity_pred.s().set(queue=f'prediccion-{os.getenv('ENVIRONMENT')}'),
         ).apply_async(link_error=error_handler.s())
-
-
-    # try:
-    #     # print(result.get(on_message=on_raw_message))        
-    #     print(result.get())        
-    # except Exception as e:
-    #     print(f'Error en la ejecución de la cadena de tareas: {e}')
-
-
-

@@ -29,7 +29,8 @@ import datetime
 # x = model.predict(input_array)
 # print(x)
 
-BACKEND = 'https://analyzerapiv3.troiatec.com'
+# BACKEND = 'https://analyzerapiv3.troiatec.com'
+BACKEND = os.getenv('BACKEND')
 #BACKEND = 'http://localhost/Analyzer/Predict_Analyzer_Back'
 client = pymongo.MongoClient('172.17.0.1:27017')
 

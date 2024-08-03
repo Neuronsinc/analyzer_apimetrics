@@ -19,7 +19,7 @@ router = APIRouter()
 
 route_predict = 'app/image_cache'
 
-BACKEND = 'https://analyzerapiv3.troiatec.com'
+BACKEND = os.getenv('BACKEND')
 
 def comprimir_imagen(file):
     imagen_original = Image.open(BytesIO(file.read()))
