@@ -33,15 +33,13 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
+          # file: "Tensorflow Dockerfile"
           push: true
-          tags: | 
-            ${{ secrets.DOCKER_USERNAME }}/movidata-backend:latest
-            ${{ secrets.DOCKER_USERNAME }}/movidata-backend:${{ env.TAG }}
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/analyzer-metrics-tensorflow:latest
+            ${{ secrets.DOCKER_USERNAME }}/analyzer-metrics-tensorflow:${{ env.GIT_COMMIT }}
           build-args: |
             APP_VERSION=${{ env.TAG }}
-            APP_NAME=movidata-backend
-            ENVIRONMENT=production
-            PUBLISH_TYPE=production
 
       - name: Checkout definitions repository
         uses: actions/checkout@v2
@@ -53,12 +51,18 @@ jobs:
 
       - name: Update Kubernetes YAML
         run: |
-          cd definitions
-          sed -i "s|image: ojrivera/movidata-backend:.*|image: ojrivera/movidata-backend:${{ env.TAG }}|g" movidata/k8s/backend/production/movidata-back-deployment.yml
+          cd definitions/analyzer/k8s
+          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics/staging/analyzer-metrics-deployment.yml
+
+          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/staging/analyzer-caracteristics-celery-deployment.yml
+          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/staging/analyzer-feng-celery-deployment.yml
+          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/staging/analyzer-prediction-celery-deployment.yml
+          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/staging/analyzer-vids-celery-deployment.yml
+
           git config --global init.defaultBranch main
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add movidata/k8s/backend/production/movidata-back-deployment.yml
+          git add .
           git commit -m "Update image version to ${{ env.TAG }}"
           git push origin main
 
@@ -80,5 +84,5 @@ jobs:
           MINUTES=$((DURATION / 60))
           SECONDS=$((DURATION % 60))
           curl -X POST -H 'Content-type: application/json' --data '{
-            "text": "La construccion del la imagen de movidata-backend para produccion (${{ env.TAG }}) ha finalizado. tiempo de construccion: ('"$MINUTES"':'"$SECONDS"')"
+            "text": "La construccion del la imagen de analyzer api metrics para produccion (${{ env.TAG }}) ha finalizado. tiempo de construccion: ('"$MINUTES"':'"$SECONDS"')"
           }' https://hooks.slack.com/services/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 

@@ -37,6 +37,9 @@ celery_app = Celery(
     backend= BACKEND_URL
 )
 
+
+
+
 def messagesRedis(message: dict, type: int, status: int):
     """
     Encola mensajes de éxito o fallo en colas de Redis.
