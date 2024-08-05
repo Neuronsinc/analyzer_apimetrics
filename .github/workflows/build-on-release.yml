@@ -1,4 +1,4 @@
-name: Update definition on release
+name: Update definition on metrics release
 
 on:
   release:
