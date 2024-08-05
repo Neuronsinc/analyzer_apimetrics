@@ -334,7 +334,8 @@ def getAndSaveCsv(stimulus: Stimulus, token: str, credentials: ApiCredential, id
     data =  {"idStimulus": stimulus.id_stimulus, "Complexity": round(promedios["Clarity"], 2), "Focus": round(promedios["Focus"] , 2), "Effectivity": effectivity}
     fo = open(csv_name, 'rb')
     file = {'file': fo}
-    headers = {'Authorization': f'Bearer {token}'}
+    # headers = {'Authorization': f'Bearer {token}'}
+    headers = {'Authorization': f'{token}'}
     url_upload = f'{BACKEND}/Stimulus/SaveAndUploadCSV'
     r = requests.post(url=url_upload, files=file ,data=data, headers=headers)
     print(r)
@@ -369,7 +370,7 @@ def getAndSaveVids(stimulus: Stimulus, token: str, credentials: ApiCredential, i
         
         fo = open(actual_filename, 'rb')
         file = {'file': fo}
-        headers = {'Authorization': f'Bearer {token}'}
+        headers = {'Authorization': f'{token}'}
         url_upload = f'{BACKEND}/Stimulus/GetAndUploadVids'
 
         r = requests.post(url=url_upload, files=file ,data=data, headers=headers)
@@ -381,7 +382,7 @@ def getAndSaveVids(stimulus: Stimulus, token: str, credentials: ApiCredential, i
             
     #save size of stimulus
     data = {'idStimulus': stimulus.id_stimulus, 'size': size}
-    headers = {'Authorization': f'Bearer {token}'}
+    headers = {'Authorization': f'{token}'}
 
     url_update_size = f'{BACKEND}/Stimulus/UpdateSize'
     size = requests.post(url=url_update_size, data=data, headers=headers)
@@ -390,7 +391,7 @@ def getAndSaveVids(stimulus: Stimulus, token: str, credentials: ApiCredential, i
 
 def sendMail(id: str, vidName: str, folderName: str, token: str, tipo: str):
     data = {'id': id, 'vidName': vidName, 'folderName': folderName, 'tipo': tipo}
-    headers = {'Authorization': f'Bearer {token}'}
+    headers = {'Authorization': f'{token}'}
     url = f'{BACKEND}/Stimulus/AdviceVideoAnalisis'
     requests.post(url=url, data=data, headers=headers)
     return "true"
