@@ -56,18 +56,18 @@ def messagesRedis(message: dict, type: int, status: int):
     """
     if (type == 0):
         if (status == 0):
-            connection.lpush('AnalizadosImg', json.dumps(message))
-            connection.publish('AnalizadosImg', json.dumps(message))
+            connection.lpush(f'AnalizadosImg-{os.getenv("ENVIRONMENT")}', json.dumps(message))
+            connection.publish(f'AnalizadosImg-{os.getenv("ENVIRONMENT")}', json.dumps(message))
         else:
-            connection.lpush('FalladosImg', json.dumps(message))
-            connection.publish('FalladosImg', json.dumps(message))
+            connection.lpush(f'FalladosImg-{os.getenv("ENVIRONMENT")}', json.dumps(message))
+            connection.publish(f'FalladosImg-{os.getenv("ENVIRONMENT")}', json.dumps(message))
     else:
         if (status == 0):
-            connection.rpush('Procesar', json.dumps(message))
-            connection.publish('Procesar', json.dumps(message))
+            connection.rpush(f'Procesar-{os.getenv("ENVIRONMENT")}', json.dumps(message))
+            connection.publish(f'Procesar-{os.getenv("ENVIRONMENT")}', json.dumps(message))
         else:
-            connection.lpush('Fallados', json.dumps(message))
-            connection.publish('Fallados', json.dumps(message))
+            connection.lpush(f'Fallados-{os.getenv("ENVIRONMENT")}', json.dumps(message))
+            connection.publish(f'Fallados-{os.getenv("ENVIRONMENT")}', json.dumps(message))
 
 
 @celery_app.task()
