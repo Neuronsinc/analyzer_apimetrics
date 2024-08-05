@@ -161,11 +161,13 @@ def data(arequest: RedisReq):
     cache = cache_manager.get_cache_instance()
     credentials = get_api_credentials(Apis.FENGUI.value, arequest.token, False, 1, cache, 1, arequest.UploadedAccount)
     stimulus = get_stimulus(arequest.idStimulus, arequest.token)
-    time.sleep(1)
+    # time.sleep(1)
+    print("va a subir el video")
     csv = getAndSaveCsv(stimulus, arequest.token, credentials, arequest.videoID)
     vids = getAndSaveVids(stimulus, arequest.token, credentials, arequest.videoID)
 
     if (csv == "Successful" and vids == "Successful"):
+        print("logro descargar los videos")
         # connection = redis.Redis.from_url(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
         connection = redis.Redis.from_url(os.getenv('REDIS_URL'))
         #idUser es ahora el id de Babel.
@@ -187,6 +189,7 @@ def data(arequest: RedisReq):
 
         sendMail(arequest.idUserAnalyzer, mi_objeto['StimulusName'], mi_objeto['FolderName'], mi_objeto['token'], "0")
     else:
+        print("no logro descargar los videos")
         # connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
         connection = redis.Redis.from_url(os.getenv('REDIS_URL'))
 
