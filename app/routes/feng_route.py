@@ -2,6 +2,7 @@ from fastapi import APIRouter, File, UploadFile
 from fastapi.responses import JSONResponse
 from typing import List
 import os
+import time
 
 import shutil
 from app.apis.feng.feng import analyze
@@ -160,7 +161,7 @@ def data(arequest: RedisReq):
     cache = cache_manager.get_cache_instance()
     credentials = get_api_credentials(Apis.FENGUI.value, arequest.token, False, 1, cache, 1, arequest.UploadedAccount)
     stimulus = get_stimulus(arequest.idStimulus, arequest.token)
-
+    time.sleep(1)
     csv = getAndSaveCsv(stimulus, arequest.token, credentials, arequest.videoID)
     vids = getAndSaveVids(stimulus, arequest.token, credentials, arequest.videoID)
 
@@ -180,8 +181,10 @@ def data(arequest: RedisReq):
             'FolderName': arequest.FolderName
         }
         handleStatus(mi_objeto["idStimulus"], 2, mi_objeto['token'])
-        connection.lpush('Analizados', json.dumps(mi_objeto))
-        connection.publish('Analizados', json.dumps(mi_objeto))
+
+        connection.lpush(f'Analizados-{os.getenv('ENVIRONMENT')}', json.dumps(mi_objeto))
+        connection.publish(f'Analizados-{os.getenv('ENVIRONMENT')}', json.dumps(mi_objeto))
+
         sendMail(arequest.idUserAnalyzer, mi_objeto['StimulusName'], mi_objeto['FolderName'], mi_objeto['token'], "0")
     else:
         # connection = redis.Redis(host=REDIS, port=REDISPORT, username=REDISUSERNAME, password=REDISPASSWORD)
@@ -199,8 +202,10 @@ def data(arequest: RedisReq):
         'FolderName': arequest.FolderName
         }
         handleStatus(mi_objeto["idStimulus"], 3, mi_objeto['token'])
-        connection.lpush('Fallados', json.dumps(mi_objeto))
-        connection.publish('Fallados', json.dumps(mi_objeto))
+
+        connection.lpush(f'Fallados-{os.getenv("ENVIRONMENT")}', json.dumps(mi_objeto))
+        connection.publish(f'Fallados-{os.getenv("ENVIRONMENT")}', json.dumps(mi_objeto))
+
         sendMail(arequest.idUserAnalyzer, mi_objeto['StimulusName'], mi_objeto['FolderName'], mi_objeto['token'], "1")
     
     return "ok"
