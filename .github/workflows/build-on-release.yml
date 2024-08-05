@@ -33,11 +33,10 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
-          # file: "Tensorflow Dockerfile"
           push: true
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/analyzer-metrics-tensorflow:latest
-            ${{ secrets.DOCKER_USERNAME }}/analyzer-metrics-tensorflow:${{ env.GIT_COMMIT }}
+            ${{ secrets.DOCKER_USERNAME }}/analyzer-metrics-tensorflow:${{ env.TAG }}
           build-args: |
             APP_VERSION=${{ env.TAG }}
 
