@@ -66,11 +66,11 @@ def messagesRedis(message: dict, type: int, status: int):
             connection.publish(f'FalladosImg-{os.getenv("ENVIRONMENT")}', json.dumps(message))
     else:
         if (status == 0):
-            connection.rpush(f'Procesar-{os.getenv("ENVIRONMENT")}', json.dumps(message))
-            connection.publish(f'Procesar-{os.getenv("ENVIRONMENT")}', json.dumps(message))
+            connection.rpush(f'Procesar', json.dumps(message))
+            connection.publish(f'Procesar', json.dumps(message))
         else:
-            connection.lpush(f'Fallados-{os.getenv("ENVIRONMENT")}', json.dumps(message))
-            connection.publish(f'Fallados-{os.getenv("ENVIRONMENT")}', json.dumps(message))
+            connection.lpush(f'Fallados', json.dumps(message))
+            connection.publish(f'Fallados', json.dumps(message))
 
 
 @celery_app.task()
