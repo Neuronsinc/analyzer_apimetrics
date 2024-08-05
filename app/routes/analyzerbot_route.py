@@ -119,7 +119,7 @@ def data(background_tasks: BackgroundTasks, t: Request, file: UploadFile = File(
                     "Duration":duration,
                     "idUserAnalyzer": idUserAnalyzer
                 }
-                procesar_video.apply_async(args=[data], queue='procesarVids')
+                procesar_video.apply_async(args=[data], queue='videos-production')
             remove(fileName)
             # return {"idStimulus": str(jsonResponse), "idFolder": id_folder, "idFather": id_father}
             return {"idStimulus": str(jsonResponse), "idFolder": id_folder}
