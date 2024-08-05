@@ -163,6 +163,8 @@ def data(arequest: RedisReq):
     stimulus = get_stimulus(arequest.idStimulus, arequest.token)
     # time.sleep(1)
     print("va a subir el video")
+    print(f"token del envio de video: {arequest.token}")
+    print(f"datos del stimulo: {stimulus}")
     csv = getAndSaveCsv(stimulus, arequest.token, credentials, arequest.videoID)
     vids = getAndSaveVids(stimulus, arequest.token, credentials, arequest.videoID)
 
