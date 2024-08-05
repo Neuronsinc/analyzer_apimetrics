@@ -51,12 +51,12 @@ jobs:
       - name: Update Kubernetes YAML
         run: |
           cd definitions/analyzer/k8s
-          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics/staging/analyzer-metrics-deployment.yml
+          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics/production/analyzer-metrics-deployment.yml
 
-          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/staging/analyzer-caracteristics-celery-deployment.yml
-          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/staging/analyzer-feng-celery-deployment.yml
-          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/staging/analyzer-prediction-celery-deployment.yml
-          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/staging/analyzer-vids-celery-deployment.yml
+          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/production/analyzer-caracteristics-celery-deployment.yml
+          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/production/analyzer-feng-celery-deployment.yml
+          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/production/analyzer-prediction-celery-deployment.yml
+          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/production/analyzer-vids-celery-deployment.yml
 
           git config --global init.defaultBranch main
           git config --global user.name 'github-actions[bot]'
