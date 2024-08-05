@@ -182,8 +182,8 @@ def data(arequest: RedisReq):
         }
         handleStatus(mi_objeto["idStimulus"], 2, mi_objeto['token'])
 
-        connection.lpush(f'Analizados-{os.getenv('ENVIRONMENT')}', json.dumps(mi_objeto))
-        connection.publish(f'Analizados-{os.getenv('ENVIRONMENT')}', json.dumps(mi_objeto))
+        connection.lpush(f'Analizados-{os.getenv("ENVIRONMENT")}', json.dumps(mi_objeto))
+        connection.publish(f'Analizados-{os.getenv("ENVIRONMENT")}', json.dumps(mi_objeto))
 
         sendMail(arequest.idUserAnalyzer, mi_objeto['StimulusName'], mi_objeto['FolderName'], mi_objeto['token'], "0")
     else:
