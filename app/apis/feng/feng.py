@@ -181,7 +181,7 @@ def analyze(stimulus: Stimulus, clarity: float, token: str, credentials:ApiCrede
         ApiMetrics.append({"name":"cognitive_load", "id":1}) 
         ApiMetrics.append({"name":"clarity", "id":2}) 
         ApiMetrics.append({"name":"effectivity", "id":3}) 
-        ApiMetrics.append({"name": "memorability", "id": 14})
+        #ApiMetrics.append({"name": "memorability", "id": 14})
             
         # i = 0
         clear = FengResponse['result']['clear']
