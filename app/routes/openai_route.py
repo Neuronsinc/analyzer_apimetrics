@@ -11,10 +11,12 @@ from typing import List
 import pymongo
 from bson import ObjectId
 
-load_dotenv("app\.env")
+load_dotenv("app\.env", override=False)
+
+mongo_url = os.environ.get("MONGO_URL")
 
 router = APIRouter()
-pymongo_client = pymongo.MongoClient("localhost:27017")
+pymongo_client = pymongo.MongoClient(mongo_url)
 
 API_KEY = os.environ.get("OPENAI_KEY")
 ASSISTANT_ID = os.environ.get("ASSISTANT_ID")
