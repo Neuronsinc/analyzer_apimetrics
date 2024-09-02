@@ -35,6 +35,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+def health():
+    return {"message": "alive"}
+
+
 
 @app.get("/memtest")
 def model_memtest(url: str):
