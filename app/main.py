@@ -10,7 +10,7 @@ from app.routes import attention_route
 from app.routes import analyzerbot_route
 from app.routes import clarity_route
 from app.routes import engagement_route
-#from app.routes import openai_route
+from app.routes import openai_route
 
 
 # from app.model.clarity_model import clarity_model_manager
@@ -47,8 +47,8 @@ def model_memtest(url: str):
         url = f'https://picsum.photos/id/1/2048/1600'
 
     img = ImageCaracteristics(url)
-    x = clarity_model_manager.get_clarity_prediction(img.clarity())
-    y = engagement_model_manager.get_prediction(img.engagement())
+    #x = clarity_model_manager.get_clarity_prediction(img.clarity())
+    #y = engagement_model_manager.get_prediction(img.engagement())
 
     process = psutil.Process(os.getpid())
     memory_2 = process.memory_info().rss / (1024 * 1024)  # Convertir a MB
@@ -65,4 +65,4 @@ app.include_router(attention_route.router)
 app.include_router(analyzerbot_route.router)
 app.include_router(clarity_route.router)
 app.include_router(engagement_route.router)
-#app.include_router(openai_route.router)
+app.include_router(openai_route.router)
