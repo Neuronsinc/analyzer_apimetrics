@@ -10,7 +10,6 @@ from pydantic import BaseModel, ValidationError
 from typing import List
 import pymongo
 from bson import ObjectId
-from icecream import ic
 
 load_dotenv("app\.env", override=False)
 
