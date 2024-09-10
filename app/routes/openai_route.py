@@ -1,5 +1,5 @@
 import re
-from app.model.recommendation_model import Recommendation, StimulusRecommendations
+from app.model.recommendation_model import Interpretations, Recommendation, StimulusRecommendations
 from app.model.recommendation_request_model import RecommendationRequest
 from fastapi import FastAPI, HTTPException, APIRouter
 from openai import OpenAI, OpenAIError
@@ -10,6 +10,7 @@ from pydantic import BaseModel, ValidationError
 from typing import List
 import pymongo
 from bson import ObjectId
+from icecream import ic
 
 load_dotenv("app\.env", override=False)
 
@@ -34,13 +35,15 @@ def clean_json_string(json_string):
 
 @router.post("/recommendation/")
 def generate_recommendations(stimulus: RecommendationRequest):
+    recommendations_collection = pymongo_client.get_database("analyzer").get_collection("recommendations")
+    ic(stimulus)
     try:
-        recommendations_collection = pymongo_client.get_database("analyzer").get_collection("recommendations")
 
         error_recs = {
             "stimulus_id": stimulus.stimulus_id,
             "folder_id": stimulus.folder_id,
             "recommendations": [],
+            "interpretations": [],
             "image_url": stimulus.image_url,
             "benchmark": stimulus.benchmark,
             "status": 5,
@@ -51,6 +54,7 @@ def generate_recommendations(stimulus: RecommendationRequest):
                 "stimulus_id": stimulus.stimulus_id,
                 "folder_id": stimulus.folder_id,
                 "recommendations": [],
+                "interpretations": [],
                 "image_url": stimulus.image_url,
                 "benchmark": stimulus.benchmark,
                 "status": 3,
@@ -73,6 +77,23 @@ def generate_recommendations(stimulus: RecommendationRequest):
                     "type": "image_url",
                     "image_url": {"url": stimulus.image_url, "detail": "low"},
                 },
+                {
+                    "type": "image_url",
+                    "image_url": {"url": stimulus.heatmap_url, "detail": "low"},
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {"url": stimulus.gaze_plot_url, "detail": "low"},
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {"url": stimulus.focus_map_url, "detail": "low"},
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {"url": stimulus.aoi_url, "detail": "low"},
+                }
+
             ],
         )
 
@@ -86,15 +107,18 @@ def generate_recommendations(stimulus: RecommendationRequest):
             )
 
             message_content = messages[0].content[0].text
-            print("ESTO QUEREMOS =>>>", message_content)
+            ic(message_content)
             message_value = clean_json_string(message_content.value) # Eliminar "```" y "```json" si OpenAI responde en markdown
             response = json.loads(message_value)
-
-            recommendations = [Recommendation(**item) for item in response]
+            ic(response)
+            ic(response["interpretaciones"])
+            ic(response["recomendaciones"])
+            recommendations = [Recommendation(**item) for item in response["recomendaciones"]]
             stimulus_recs = StimulusRecommendations(
                 stimulus_id=stimulus.stimulus_id,
                 folder_id=stimulus.folder_id,
                 recommendations=recommendations,
+                interpretations=Interpretations(**response["interpretaciones"]),
                 image_url=stimulus.image_url,
                 benchmark=stimulus.benchmark,
                 status=4,
@@ -107,6 +131,7 @@ def generate_recommendations(stimulus: RecommendationRequest):
                         "stimulus_id": stimulus.stimulus_id,
                         "folder_id": stimulus.folder_id,
                         "recommendations": [r.dict() for r in recommendations],
+                        "interpretations": Interpretations(**response["interpretaciones"]).dict(),
                         "image_url": stimulus.image_url,
                         "benchmark": stimulus.benchmark,
                         "status": 4,
@@ -140,13 +165,12 @@ def generate_recommendations(stimulus: RecommendationRequest):
             {"$set": error_recs},
         )
         raise HTTPException(status_code=500, detail=f"ValueError: {e}")
-    
+
 
 @router.get("/recommendation/stimulus/{stimulus_id}")
 def get_recommendations_by_stimulus_id(stimulus_id: int):
     try:
         recommendations_collection = pymongo_client.get_database("analyzer").get_collection("recommendations")
-
         result = recommendations_collection.find_one(
             {"stimulus_id": stimulus_id}, sort=[("_id", pymongo.DESCENDING)]
         )
@@ -159,6 +183,7 @@ def get_recommendations_by_stimulus_id(stimulus_id: int):
                 "stimulus_id": stimulus_id,
                 "folder_id": 0,
                 "recommendations": [],
+                "interpretations":[],
                 "image_url": "",
                 "benchmark": "",
                 "status": 1,
