@@ -35,7 +35,6 @@ def clean_json_string(json_string):
 @router.post("/recommendation/")
 def generate_recommendations(stimulus: RecommendationRequest):
     recommendations_collection = pymongo_client.get_database("analyzer").get_collection("recommendations")
-    ic(stimulus)
     try:
 
         error_recs = {
@@ -106,12 +105,8 @@ def generate_recommendations(stimulus: RecommendationRequest):
             )
 
             message_content = messages[0].content[0].text
-            ic(message_content)
             message_value = clean_json_string(message_content.value) # Eliminar "```" y "```json" si OpenAI responde en markdown
             response = json.loads(message_value)
-            ic(response)
-            ic(response["interpretaciones"])
-            ic(response["recomendaciones"])
             recommendations = [Recommendation(**item) for item in response["recomendaciones"]]
             stimulus_recs = StimulusRecommendations(
                 stimulus_id=stimulus.stimulus_id,
