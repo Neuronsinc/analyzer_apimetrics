@@ -26,7 +26,7 @@ class StimulusRecommendations(BaseModel):
     stimulus_id: int
     folder_id: int
     recommendations: List[Recommendation]
-    interpretations: Interpretations
+    interpretations: Optional[Interpretations]
     image_url: str
     benchmark: str
     status: int
