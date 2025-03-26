@@ -4,6 +4,7 @@ from typing import Dict, List
 
 
 class RecommendationRequest(BaseModel):
+    idUser: int
     layer_id: str
     project_id: int
     area: int
