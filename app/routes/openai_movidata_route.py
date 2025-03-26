@@ -50,6 +50,7 @@ def generate_recommendations(layer: RecommendationRequest):
     try:
 
         error_recs = {
+            "idUser": layer.idUser,
             "layer_id": layer.layer_id,
             "project_id": layer.project_id,
             "recommendations": [],
@@ -189,6 +190,7 @@ def generate_recommendations(layer: RecommendationRequest):
 
             # aviso a redis
             mi_objeto = {
+                'idUser': layer.idUser,
                 'layer_id': layer.layer_id,
                 'project_id':layer.project_id,
                 'recommendations': [rec.dict() for rec in recommendations],
