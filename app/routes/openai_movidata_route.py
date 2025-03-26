@@ -191,7 +191,7 @@ def generate_recommendations(layer: RecommendationRequest):
             mi_objeto = {
                 'layer_id': layer.layer_id,
                 'project_id':layer.project_id,
-                'recommendations': [rec.model_dump() for rec in recommendations],
+                'recommendations': [rec.dict() for rec in recommendations],
                 'interpretacion': response["interpretacion_general"],
                 'pais':layer.pais,
                 'fecha_inicial':layer.fecha_inicial,
