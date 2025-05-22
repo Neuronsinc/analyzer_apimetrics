@@ -112,4 +112,4 @@ jobs:
           SECONDS=$((DURATION % 60))
           curl -X POST -H 'Content-type: application/json' --data '{
             "text": "La construccion del la imagen de analyzer-metrics-[python/tensorflow]:${{ env.GIT_COMMIT }} ha finalizado. ('"$MINUTES"':'"$SECONDS"')"
-          }' https://hooks.slack.com/services/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
+          }' https://hooks.slack.com/services/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
