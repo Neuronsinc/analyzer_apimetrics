@@ -11,6 +11,7 @@ import hashlib
 from PIL import Image, ExifTags
 from io import BytesIO
 from fastapi.responses import JSONResponse
+from app.model.babel_model import BabelAPIClient
 
 from moviepy.editor import VideoFileClip
 
@@ -37,104 +38,124 @@ def comprimir_imagen(file):
                 break
     except (AttributeError, KeyError, IndexError):
         pass
-    
+
     return imagen_original
 
 
-@router.post('/Analyzer/Stimulus')
-def data(background_tasks: BackgroundTasks, t: Request, file: UploadFile = File(...), id_folder: str = Form(), idUser: str = Form(), idCompany: str = Form(), idLicense: str = Form(), FolderName: str = Form(), idUserAnalyzer: str = Form()):
-    token = t.headers.get('Authorization')
-    print(f'id_folder {id_folder}')
+@router.post("/Analyzer/Stimulus")
+def data(
+    background_tasks: BackgroundTasks,
+    t: Request,
+    file: UploadFile = File(...),
+    id_folder: str = Form(),
+    idUser: str = Form(),
+    idCompany: str = Form(),
+    idLicense: str = Form(),
+    FolderName: str = Form(),
+    idUserAnalyzer: str = Form(),
+):
+    token = t.headers.get("Authorization")
+    babel_cli = BabelAPIClient(t)
 
     try:
         today = datetime.now()
         originalName = file.filename
-        extension = ''
-        if (".png" in originalName or ".PNG" in originalName):
-            extension = '.png'
-            originalName = originalName[0: len(originalName) - 4]
-        elif (".jpg" in originalName or ".JPG" in originalName):
-            extension = '.jpg'
-            originalName = originalName[0: len(originalName) - 4]
-        elif (".jpeg" in originalName or ".JPEG" in originalName):
-            extension = '.jpeg'
-            originalName = originalName[0: len(originalName) - 5]
-        elif (".mp4" in originalName or ".MP4" in originalName):
-            extension = '.mp4'
-            originalName = originalName[0: len(originalName) - 4]
-            
-        
+        extension = ""
+        if ".png" in originalName or ".PNG" in originalName:
+            extension = ".png"
+            originalName = originalName[0 : len(originalName) - 4]
+        elif ".jpg" in originalName or ".JPG" in originalName:
+            extension = ".jpg"
+            originalName = originalName[0 : len(originalName) - 4]
+        elif ".jpeg" in originalName or ".JPEG" in originalName:
+            extension = ".jpeg"
+            originalName = originalName[0 : len(originalName) - 5]
+        elif ".mp4" in originalName or ".MP4" in originalName:
+            extension = ".mp4"
+            originalName = originalName[0 : len(originalName) - 4]
+
         h = f'{datetime.now().strftime("%d%m%Y_%H%M%S")}'
-        reg = re.sub('[^A-Za-z0-9]+','',re.sub('\s+', '-', (originalName).lower()))
+        reg = re.sub("[^A-Za-z0-9]+", "", re.sub("\s+", "-", (originalName).lower()))
         fileName = f"{h}{reg}{extension}"
 
         duration = 1
-        
-        if  (extension != ".mp4"):
+
+        if extension != ".mp4":
             redimensionada = comprimir_imagen(file.file)
             redimensionada.save(fileName)
         else:
-            with open(fileName, 'wb') as f:
+            with open(fileName, "wb") as f:
                 shutil.copyfileobj(file.file, f)
-            
+
             video = VideoFileClip(fileName)
             duration = int(video.duration)
-            video.close()   
+            video.close()
 
-        data = {'id_folder': id_folder}
-        fo = open(fileName, 'rb')
-        ff = {'image': fo} 
-        headers = {'Authorization': token}
+        data = {"id_folder": id_folder}
+        fo = open(fileName, "rb")
+        ff = {"image": fo}
+        headers = {"Authorization": token}
 
-        r = requests.post(url=f'{BACKEND}/Stimulus/UploadStimulus', files=ff ,data=data, headers=headers)
+        r = requests.post(
+            url=f"{BACKEND}/Stimulus/UploadStimulus",
+            files=ff,
+            data=data,
+            headers=headers,
+        )
         status_c = r.status_code
 
         jsonResponse = r.json()
         fo.close()
 
-        if (status_c == 200):
+        if status_c == 200:
             if extension != ".mp4":
+                babel_cli.consume("Analizar imagenes")
+
                 data = {
                     "id_stimulus": str(jsonResponse),
-                    "analyzer_token":token,
-                    "clarity":"",
-                    "idUser":idUser,
-                    "idCompany":idCompany,
-                    "idLicense":idLicense,
+                    "analyzer_token": token,
+                    "clarity": "",
+                    "idUser": idUser,
+                    "idCompany": idCompany,
+                    "idLicense": idLicense,
                     "idFolder": id_folder,
-                    "FolderName":FolderName
+                    "FolderName": FolderName,
                 }
-                #caracteristicas.apply_async(args=[data.dict()], queue='caracteristicas')
+                # caracteristicas.apply_async(args=[data.dict()], queue='caracteristicas')
                 pipeline(data)
             else:
+                babel_cli.consume("Analizer videos")
+                
                 data = {
-                    "idUser":idUser,
-                    "idCompany":idCompany,
-                    "idLicense":idLicense,
-                    "id_stimulus":str(jsonResponse),
-                    "analyzer_token":token,
-                    "idFolder":id_folder,
-                    "StimulusName":originalName,
-                    "FolderName":FolderName,
-                    "Duration":duration,
-                    "idUserAnalyzer": idUserAnalyzer
+                    "idUser": idUser,
+                    "idCompany": idCompany,
+                    "idLicense": idLicense,
+                    "id_stimulus": str(jsonResponse),
+                    "analyzer_token": token,
+                    "idFolder": id_folder,
+                    "StimulusName": originalName,
+                    "FolderName": FolderName,
+                    "Duration": duration,
+                    "idUserAnalyzer": idUserAnalyzer,
                 }
-                procesar_video.apply_async(args=[data], queue='videos-production')
+                procesar_video.apply_async(args=[data], queue="videos-production")
             remove(fileName)
             # return {"idStimulus": str(jsonResponse), "idFolder": id_folder, "idFather": id_father}
             return {"idStimulus": str(jsonResponse), "idFolder": id_folder}
         else:
             remove(fileName)
-            return JSONResponse(content="Error uploading the file", status_code=status_c)
+            return JSONResponse(
+                content="Error uploading the file", status_code=status_c
+            )
 
-        
     except Exception as ex:
         print(ex)
         return JSONResponse(content="Error uploading the file", status_code=500)
-        #raise {"message": "Error uploading the file"}
+        # raise {"message": "Error uploading the file"}
 
     finally:
         file.file.close()
+
 
 # ----------------------------------------- pruebas abajo ------------------------------------------------------
 from app.model.image_model import ImageCaracteristics
@@ -247,5 +268,3 @@ def data(data: dict, background_tasks: BackgroundTasks):
     background_tasks.add_task(N_results())
     return "si"
     #return JSONResponse(content=response, status_code=200)
-
-
