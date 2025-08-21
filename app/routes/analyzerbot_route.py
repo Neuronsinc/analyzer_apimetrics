@@ -55,11 +55,9 @@ def data(
     idUserAnalyzer: str = Form(),
 ):
     token = t.headers.get("Authorization")
-    print("Previo a Babel_cli")
     babel_cli = BabelAPIClient(t)
 
     try:
-        print("Entra al try")
         today = datetime.now()
         originalName = file.filename
         extension = ""
@@ -83,7 +81,6 @@ def data(
         duration = 1
 
         if extension != ".mp4":
-            print("previo a comprimir")
             redimensionada = comprimir_imagen(file.file)
             redimensionada.save(fileName)
         else:
@@ -100,6 +97,12 @@ def data(
         headers = {"Authorization": token}
         
         print("peticion a la backend")
+        print({
+            "url":f"{BACKEND}/Stimulus/UploadStimulus",
+            "files":ff,
+            "data":data,
+            "headers":headers,
+        })
 
         r = requests.post(
             url=f"{BACKEND}/Stimulus/UploadStimulus",
@@ -107,8 +110,10 @@ def data(
             data=data,
             headers=headers,
         )
+        print(r)
         status_c = r.status_code
 
+        print(status_c)
         jsonResponse = r.json()
         fo.close()
 
