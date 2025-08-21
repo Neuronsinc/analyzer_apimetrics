@@ -58,6 +58,7 @@ def data(
     babel_cli = BabelAPIClient(t)
 
     try:
+        print("Entra al try")
         today = datetime.now()
         originalName = file.filename
         extension = ""
@@ -81,6 +82,7 @@ def data(
         duration = 1
 
         if extension != ".mp4":
+            print("previo a comprimir")
             redimensionada = comprimir_imagen(file.file)
             redimensionada.save(fileName)
         else:
@@ -95,6 +97,8 @@ def data(
         fo = open(fileName, "rb")
         ff = {"image": fo}
         headers = {"Authorization": token}
+        
+        print("peticion a la backend")
 
         r = requests.post(
             url=f"{BACKEND}/Stimulus/UploadStimulus",
@@ -109,6 +113,7 @@ def data(
 
         if status_c == 200:
             if extension != ".mp4":
+                print("consumir creditos de babel")
                 babel_cli.consume("Analizar imagenes")
 
                 data = {
@@ -139,6 +144,7 @@ def data(
                     "idUserAnalyzer": idUserAnalyzer,
                 }
                 procesar_video.apply_async(args=[data], queue="videos-production")
+            print("quitar el archivo")
             remove(fileName)
             # return {"idStimulus": str(jsonResponse), "idFolder": id_folder, "idFather": id_father}
             return {"idStimulus": str(jsonResponse), "idFolder": id_folder}

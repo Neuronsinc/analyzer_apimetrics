@@ -1,6 +1,11 @@
+import os
 import boto3
 
+from dotenv import load_dotenv
 
+load_dotenv("app\.env", override=False)
+AWS_KEY = os.environ.get("AWS_KEY")
+AWS_SECRET = os.environ.get("AWS_SECRET")
 
 
 #collection y api pueden ser variables para el constructor
@@ -8,8 +13,8 @@ class S3Manager:
     def __init__(self):
         self.b = boto3.resource('s3'
                 , region_name='us-east-1'
-                , aws_access_key_id='AKIA5DCHBSHBGAJ64FO2'
-                , aws_secret_access_key='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')
+                , aws_access_key_id=AWS_KEY
+                , aws_secret_access_key=AWS_SECRET)
 
         self.bucket = self.b.Bucket('geotec-dev')
 
