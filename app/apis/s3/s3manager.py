@@ -7,7 +7,6 @@ load_dotenv("app\.env", override=False)
 AWS_KEY = os.environ.get("AWS_KEY")
 AWS_SECRET = os.environ.get("AWS_SECRET")
 
-
 #collection y api pueden ser variables para el constructor
 class S3Manager:
     def __init__(self):

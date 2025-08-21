@@ -55,6 +55,7 @@ def data(
     idUserAnalyzer: str = Form(),
 ):
     token = t.headers.get("Authorization")
+    print("Previo a Babel_cli")
     babel_cli = BabelAPIClient(t)
 
     try:
