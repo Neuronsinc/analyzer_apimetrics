@@ -95,14 +95,6 @@ def data(
         fo = open(fileName, "rb")
         ff = {"image": fo}
         headers = {"Authorization": token}
-        
-        print("peticion a la backend")
-        print({
-            "url":f"{BACKEND}/Stimulus/UploadStimulus",
-            "files":ff,
-            "data":data,
-            "headers":headers,
-        })
 
         r = requests.post(
             url=f"{BACKEND}/Stimulus/UploadStimulus",
@@ -110,14 +102,16 @@ def data(
             data=data,
             headers=headers,
         )
-        print(r)
         status_c = r.status_code
 
-        print(status_c)
         jsonResponse = r.json()
+        print("jsonResponse")
+        print(jsonResponse)
         fo.close()
+        print("fo.close()")
 
         if status_c == 200:
+            print("status 200")
             if extension != ".mp4":
                 print("consumir creditos de babel")
                 babel_cli.consume("Analizar imagenes")
