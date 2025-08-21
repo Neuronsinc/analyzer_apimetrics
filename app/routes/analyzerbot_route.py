@@ -103,6 +103,11 @@ def data(
             headers=headers,
         )
         status_c = r.status_code
+        
+        print("Status:", r.status_code)
+        print("Content-Type:", r.headers.get("Content-Type"))
+        print("Response:\n", r.text)
+
 
         jsonResponse = r.json()
         print("jsonResponse")
