@@ -103,22 +103,11 @@ def data(
             headers=headers,
         )
         status_c = r.status_code
-        
-        print("Status:", r.status_code)
-        print("Content-Type:", r.headers.get("Content-Type"))
-        print("Response:\n", r.text)
-
-
         jsonResponse = r.json()
-        print("jsonResponse")
-        print(jsonResponse)
         fo.close()
-        print("fo.close()")
 
         if status_c == 200:
-            print("status 200")
             if extension != ".mp4":
-                print("consumir creditos de babel")
                 babel_cli.consume("Analizar imagenes")
 
                 data = {
@@ -149,7 +138,6 @@ def data(
                     "idUserAnalyzer": idUserAnalyzer,
                 }
                 procesar_video.apply_async(args=[data], queue="videos-production")
-            print("quitar el archivo")
             remove(fileName)
             # return {"idStimulus": str(jsonResponse), "idFolder": id_folder, "idFather": id_father}
             return {"idStimulus": str(jsonResponse), "idFolder": id_folder}
