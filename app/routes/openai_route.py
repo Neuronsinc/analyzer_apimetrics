@@ -32,7 +32,7 @@ async def generate_recommendations(stimulus: RecommendationRequest):
 
     client = OpenAI(api_key=api_key)
     
-    # Objeto base para reportar errores
+    # Objeto base para reportar errores detallados al frontend
     error_recs = {
         "stimulus_id": stimulus.stimulus_id,
         "folder_id": stimulus.folder_id,
@@ -43,8 +43,8 @@ async def generate_recommendations(stimulus: RecommendationRequest):
             "focus_map_es": None, "focus_map_en": None,
             "aois_es": None, "aois_en": None
         },
-        "conclusion_en": "Error técnico detectado.",
-        "conclusion_es": "Error técnico detectado.",
+        "conclusion_en": "Technical error during generation.",
+        "conclusion_es": "Error técnico durante la generación.",
         "image_url": stimulus.image_url,
         "benchmark": stimulus.benchmark,
         "status": 5,
@@ -54,22 +54,31 @@ async def generate_recommendations(stimulus: RecommendationRequest):
         # 1. Verificar Asistente
         assistant_id = os.getenv("BABEL_ASSISTANT_ID")
         if not assistant_id:
-            print("[WARN IA] BABEL_ASSISTANT_ID no definido, usando fallback...")
-            # Aquí podrías poner un ID de respaldo o crear uno dinámicamente
+            print("[WARN IA] BABEL_ASSISTANT_ID no definido.")
+            error_recs["conclusion_es"] = "Error: BABEL_ASSISTANT_ID no configurado en el servidor."
+            return error_recs
 
         # 2. Crear Thread y Mensaje
         thread = client.beta.threads.create()
-        print(f"[DEBUG IA] Thread: {thread.id} | Procesando estimulo: {stimulus.stimulus_id}")
+        print(f"[DEBUG IA] Thread: {thread.id} | Stimulus: {stimulus.stimulus_id}")
 
-        content_list = [
-            {"type": "text", "text": f"Analyze for benchmark: {stimulus.benchmark}. Return JSON with 'recommendations' and 'interpretations' keys."},
-            {"type": "text", "text": f"Scores: {json.dumps(stimulus.metrics)}"},
-            {"type": "image_url", "image_url": {"url": stimulus.image_url}},
-            {"type": "image_url", "image_url": {"url": stimulus.heatmap_url}},
-            {"type": "image_url", "image_url": {"url": stimulus.focus_map_url}},
-            {"type": "image_url", "image_url": {"url": stimulus.gaze_plot_url}},
-            {"type": "image_url", "image_url": {"url": stimulus.aoi_url}}
+        # Validar que las URLs no estén vacías antes de enviar
+        content_list = [{"type": "text", "text": f"Analyze for benchmark: {stimulus.benchmark}. Return JSON."}]
+        
+        # Lista de imágenes a enviar
+        images = [
+            ("Original", stimulus.image_url),
+            ("Heatmap", stimulus.heatmap_url),
+            ("Focus", stimulus.focus_map_url),
+            ("Gaze", stimulus.gaze_plot_url),
+            ("AOI", stimulus.aoi_url)
         ]
+
+        for name, url in images:
+            if url and url.startswith("http"):
+                content_list.append({"type": "image_url", "image_url": {"url": url}})
+            else:
+                print(f"[WARN IA] URL de imagen '{name}' inválida o vacía.")
 
         client.beta.threads.messages.create(
             thread_id=thread.id,
@@ -77,7 +86,7 @@ async def generate_recommendations(stimulus: RecommendationRequest):
             content=content_list
         )
 
-        # 3. Ejecutar Run
+        # 3. Ejecutar Run y esperar
         run = client.beta.threads.runs.create_and_poll(
             thread_id=thread.id, 
             assistant_id=assistant_id
@@ -95,7 +104,7 @@ async def generate_recommendations(stimulus: RecommendationRequest):
                 recommendations_data = json.loads(cleaned_content)
             except json.JSONDecodeError as je:
                 print(f"[ERROR IA] JSON inválido de OpenAI: {cleaned_content}")
-                error_recs["conclusion_es"] = f"Error de formato IA: {str(je)}"
+                error_recs["conclusion_es"] = f"Error de formato IA: El JSON devuelto no es válido."
                 return error_recs
 
             recs = []
@@ -125,9 +134,17 @@ async def generate_recommendations(stimulus: RecommendationRequest):
             return response_data
 
         elif run.status == "failed":
-            error_msg = run.last_error.message if run.last_error else "Fallo desconocido en OpenAI"
-            print(f"[ERROR IA] El Run de OpenAI falló: {error_msg}")
-            error_recs["conclusion_es"] = f"OpenAI Falló: {error_msg}"
+            # ESTE ES EL PUNTO CLAVE: Capturar por qué falló OpenAI
+            error_msg = run.last_error.message if run.last_error else "Fallo desconocido"
+            error_code = run.last_error.code if run.last_error else "no_code"
+            print(f"[ERROR IA] Run falló: {error_code} - {error_msg}")
+            
+            # Si el error es 'failed_to_download_file', el problema es S3
+            if "download" in error_msg.lower():
+                error_recs["conclusion_es"] = "Error de OpenAI: No se pudieron descargar las imágenes de S3. Verifique que sean públicas."
+            else:
+                error_recs["conclusion_es"] = f"OpenAI Error ({error_code}): {error_msg}"
+            
             recommendations_collection.update_one(
                 {"stimulus_id": stimulus.stimulus_id},
                 {"$set": error_recs},
@@ -136,17 +153,16 @@ async def generate_recommendations(stimulus: RecommendationRequest):
             return error_recs
 
         else:
-            print(f"[WARN IA] Run terminó con estado inesperado: {run.status}")
-            error_recs["conclusion_es"] = f"Estado inesperado: {run.status}"
+            error_recs["conclusion_es"] = f"Estado inesperado de la IA: {run.status}"
             return error_recs
 
     except OpenAIError as oe:
-        print(f"[ERROR IA] Excepción de OpenAI: {str(oe)}")
-        error_recs["conclusion_es"] = f"Error de API: {str(oe)}"
+        print(f"[ERROR IA] Excepción API: {str(oe)}")
+        error_recs["conclusion_es"] = f"Error de conexión con OpenAI: {str(oe)}"
         return error_recs
     except Exception as e:
-        print(f"[ERROR IA] Error general: {str(e)}")
-        error_recs["conclusion_es"] = f"Error interno: {str(e)}"
+        print(f"[ERROR IA] Error General: {str(e)}")
+        error_recs["conclusion_es"] = f"Error interno en microservicio: {str(e)}"
         return error_recs
 
 @router.get("/stimulus/{stimulus_id}", response_model=RecommendationResponse)
