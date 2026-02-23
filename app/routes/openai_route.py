@@ -1,174 +1,227 @@
-import json
-import os
 import re
-from typing import List, Optional
-
-from fastapi import APIRouter, HTTPException
-from openai import OpenAI, OpenAIError
-from pydantic import ValidationError
-
-from app.apis.s3.s3manager import S3Manager
-from app.model.api_model import ApiModel
-from app.model.recommendation_model import Recommendation, RecommendationResponse
+from app.model.recommendation_model import Interpretations, Recommendation, StimulusRecommendations
 from app.model.recommendation_request_model import RecommendationRequest
+from fastapi import FastAPI, HTTPException, APIRouter
+from openai import OpenAI, OpenAIError
+from dotenv import load_dotenv
+import os
+import json
+from pydantic import BaseModel, ValidationError
+from typing import List
+import pymongo
+from bson import ObjectId
+
+load_dotenv("app\.env", override=False)
+
+mongo_url = os.environ.get("MONGO_URL")
 
 router = APIRouter()
+pymongo_client = pymongo.MongoClient(mongo_url)
 
-# Configuración de MongoDB (asumiendo que viene de un modelo de base de datos)
-from Api import db
-recommendations_collection = db["recommendations"]
+API_KEY = os.environ.get("OPENAI_KEY")
+ASSISTANT_ID = os.environ.get("ASSISTANT_ID")
 
-def clean_json_response(text: str) -> str:
-    """Elimina bloques de código markdown y espacios en blanco innecesarios."""
-    text = re.sub(r'```json\s*|```\s*', '', text)
-    return text.strip()
+client = OpenAI(api_key=API_KEY)
 
-@router.post("/", response_model=RecommendationResponse)
-async def generate_recommendations(stimulus: RecommendationRequest):
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        print("[ERROR IA] OPENAI_API_KEY no configurada.")
-        raise HTTPException(status_code=500, detail="OpenAI API key not configured")
+assistant = client.beta.assistants.retrieve(assistant_id=ASSISTANT_ID)
 
-    client = OpenAI(api_key=api_key)
-    
-    # Objeto base para reportar errores detallados al frontend
-    error_recs = {
-        "stimulus_id": stimulus.stimulus_id,
-        "folder_id": stimulus.folder_id,
-        "recommendations": [],
-        "interpretations": {
-            "heat_map_es": None, "heat_map_en": None, 
-            "gaze_plot_es": None, "gaze_plot_en": None, 
-            "focus_map_es": None, "focus_map_en": None,
-            "aois_es": None, "aois_en": None
-        },
-        "conclusion_en": "Technical error during generation.",
-        "conclusion_es": "Error técnico durante la generación.",
-        "image_url": stimulus.image_url,
-        "benchmark": stimulus.benchmark,
-        "status": 5,
-    }
 
+def clean_json_string(json_string):
+    pattern = r"^```json\s*(.*?)\s*```$"
+    cleaned_string = re.sub(pattern, r"\1", json_string, flags=re.DOTALL)
+    return cleaned_string.strip()
+
+
+@router.post("/recommendation/")
+def generate_recommendations(stimulus: RecommendationRequest):
+    recommendations_collection = pymongo_client.get_database("analyzer").get_collection("recommendations")
     try:
-        # 1. Verificar Asistente
-        assistant_id = os.getenv("BABEL_ASSISTANT_ID")
-        if not assistant_id:
-            print("[WARN IA] BABEL_ASSISTANT_ID no definido.")
-            error_recs["conclusion_es"] = "Error: BABEL_ASSISTANT_ID no configurado en el servidor."
-            return error_recs
 
-        # 2. Crear Thread y Mensaje
+        error_recs = {
+            "stimulus_id": stimulus.stimulus_id,
+            "folder_id": stimulus.folder_id,
+            "recommendations": [],
+            "interpretations": [],
+            "conclusion_en": "",
+            "conclusion_es": "",
+            "image_url": stimulus.image_url,
+            "benchmark": stimulus.benchmark,
+            "status": 5,
+        }
+
+        inserted_recs = recommendations_collection.insert_one(
+            {
+                "stimulus_id": stimulus.stimulus_id,
+                "folder_id": stimulus.folder_id,
+                "recommendations": [],
+                "interpretations": [],
+                "conclusion_en": "",
+                "conclusion_es": "",
+                "image_url": stimulus.image_url,
+                "benchmark": stimulus.benchmark,
+                "status": 3,
+            }
+        )
+
+        metricas = ", ".join(f"{d.name}: {d.score}" for d in stimulus.metrics)
+
         thread = client.beta.threads.create()
-        print(f"[DEBUG IA] Thread: {thread.id} | Stimulus: {stimulus.stimulus_id}")
-
-        # Validar que las URLs no estén vacías antes de enviar
-        content_list = [{"type": "text", "text": f"Analyze for benchmark: {stimulus.benchmark}. Return JSON."}]
-        
-        # Lista de imágenes a enviar
-        images = [
-            ("Original", stimulus.image_url),
-            ("Heatmap", stimulus.heatmap_url),
-            ("Focus", stimulus.focus_map_url),
-            ("Gaze", stimulus.gaze_plot_url),
-            ("AOI", stimulus.aoi_url)
-        ]
-
-        for name, url in images:
-            if url and url.startswith("http"):
-                content_list.append({"type": "image_url", "image_url": {"url": url}})
-            else:
-                print(f"[WARN IA] URL de imagen '{name}' inválida o vacía.")
 
         client.beta.threads.messages.create(
             thread_id=thread.id,
             role="user",
-            content=content_list
+            content=[
+                {
+                    "type": "text",
+                    "text": f"imagen de {stimulus.benchmark} con metricas {metricas}",
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {"url": stimulus.image_url, "detail": "low"},
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {"url": stimulus.heatmap_url, "detail": "low"},
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {"url": stimulus.gaze_plot_url, "detail": "low"},
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {"url": stimulus.focus_map_url, "detail": "low"},
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {"url": stimulus.aoi_url, "detail": "low"},
+                }
+
+            ],
         )
 
-        # 3. Ejecutar Run y esperar
         run = client.beta.threads.runs.create_and_poll(
-            thread_id=thread.id, 
-            assistant_id=assistant_id
+            thread_id=thread.id, assistant_id=assistant.id
         )
-
-        print(f"[DEBUG IA] Run ID: {run.id} | Status: {run.status}")
 
         if run.status == "completed":
-            messages = client.beta.threads.messages.list(thread_id=thread.id)
-            message_content = messages.data[0].content[0].text.value
-            
-            # Limpiar y parsear JSON
-            cleaned_content = clean_json_response(message_content)
-            try:
-                recommendations_data = json.loads(cleaned_content)
-            except json.JSONDecodeError as je:
-                print(f"[ERROR IA] JSON inválido de OpenAI: {cleaned_content}")
-                error_recs["conclusion_es"] = f"Error de formato IA: El JSON devuelto no es válido."
-                return error_recs
+            messages = list(
+                client.beta.threads.messages.list(thread_id=thread.id, run_id=run.id)
+            )
 
-            recs = []
-            for item in recommendations_data.get("recommendations", []):
-                try:
-                    recs.append(Recommendation(**item))
-                except ValidationError:
-                    continue
+            message_content = messages[0].content[0].text
+            message_value = clean_json_string(message_content.value) # Eliminar "```" y "```json" si OpenAI responde en markdown
+            response = json.loads(message_value)
+            recommendations = [Recommendation(**item) for item in response["recomendaciones"]]
+            stimulus_recs = StimulusRecommendations(
+                stimulus_id=stimulus.stimulus_id,
+                folder_id=stimulus.folder_id,
+                recommendations=recommendations,
+                conclusion_en=response["conclusion_en"],
+                conclusion_es=response["conclusion_es"],
+                interpretations=Interpretations(**response["interpretaciones"]),
+                image_url=stimulus.image_url,
+                benchmark=stimulus.benchmark,
+                status=4,
+            )
 
-            response_data = {
-                "stimulus_id": stimulus.stimulus_id,
-                "folder_id": stimulus.folder_id,
-                "recommendations": recs,
-                "interpretations": recommendations_data.get("interpretations", {}),
-                "conclusion_en": recommendations_data.get("conclusion_en", ""),
-                "conclusion_es": recommendations_data.get("conclusion_es", ""),
-                "image_url": stimulus.image_url,
-                "benchmark": stimulus.benchmark,
+            recommendations_collection.update_one(
+                {"_id": ObjectId(inserted_recs.inserted_id)},
+                {
+                    "$set": {
+                        "stimulus_id": stimulus.stimulus_id,
+                        "folder_id": stimulus.folder_id,
+                        "recommendations": [r.dict() for r in recommendations],
+                        "interpretations": Interpretations(**response["interpretaciones"]).dict(),
+                        "conclusion_en": response["conclusion_en"],
+                        "conclusion_es": response["conclusion_es"],
+                        "image_url": stimulus.image_url,
+                        "benchmark": stimulus.benchmark,
+                        "status": 4,
+                    }
+                },
+            )
+
+            return stimulus_recs
+        elif run.status == "failed":
+            print(run.last_error.code)
+            recommendations_collection.update_one(
+                {"_id": ObjectId(inserted_recs.inserted_id)},
+                {"$set": error_recs},
+            )
+            return error_recs
+    except OpenAIError as e:
+        recommendations_collection.update_one(
+            {"_id": ObjectId(inserted_recs.inserted_id)},
+            {"$set": error_recs},
+        )
+        raise HTTPException(status_code=500, detail=f"OpenAI Error: {e}")
+    except ValidationError as e:
+        recommendations_collection.update_one(
+            {"_id": ObjectId(inserted_recs.inserted_id)},
+            {"$set": error_recs},
+        )
+        raise HTTPException(status_code=400, detail=f"Validation Error: {e.json()}")
+    except ValueError as e:
+        recommendations_collection.update_one(
+            {"_id": ObjectId(inserted_recs.inserted_id)},
+            {"$set": error_recs},
+        )
+        raise HTTPException(status_code=500, detail=f"ValueError: {e}")
+
+
+@router.get("/recommendation/stimulus/{stimulus_id}")
+def get_recommendations_by_stimulus_id(stimulus_id: int):
+    try:
+        recommendations_collection = pymongo_client.get_database("analyzer").get_collection("recommendations")
+        result = recommendations_collection.find_one(
+            {"stimulus_id": stimulus_id}, sort=[("_id", pymongo.DESCENDING)]
+        )
+
+        if result:
+            recommendations = StimulusRecommendations(**result)
+            return recommendations
+        else:
+            return {
+                "stimulus_id": stimulus_id,
+                "folder_id": 0,
+                "recommendations": [],
+                "interpretations":[],
+                "conclusion_en": "",
+                "conclusion_es": "",
+                "image_url": "",
+                "benchmark": "",
                 "status": 1,
             }
 
-            recommendations_collection.update_one(
-                {"stimulus_id": stimulus.stimulus_id},
-                {"$set": response_data},
-                upsert=True
-            )
-            return response_data
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=f"Validation Error: {e.json()}")
 
-        elif run.status == "failed":
-            # ESTE ES EL PUNTO CLAVE: Capturar por qué falló OpenAI
-            error_msg = run.last_error.message if run.last_error else "Fallo desconocido"
-            error_code = run.last_error.code if run.last_error else "no_code"
-            print(f"[ERROR IA] Run falló: {error_code} - {error_msg}")
-            
-            # Si el error es 'failed_to_download_file', el problema es S3
-            if "download" in error_msg.lower():
-                error_recs["conclusion_es"] = "Error de OpenAI: No se pudieron descargar las imágenes de S3. Verifique que sean públicas."
-            else:
-                error_recs["conclusion_es"] = f"OpenAI Error ({error_code}): {error_msg}"
-            
-            recommendations_collection.update_one(
-                {"stimulus_id": stimulus.stimulus_id},
-                {"$set": error_recs},
-                upsert=True
-            )
-            return error_recs
 
+@router.get("/recommendation/folder/{folder_id}")
+def get_recommendations_by_folder_id(folder_id: int):
+    try:
+        recommendations_collection = pymongo_client.get_database("analyzer").get_collection("recommendations")
+
+        pipeline = [
+            {"$match": {"folder_id": folder_id}},
+            {"$sort": {"_id": pymongo.DESCENDING}},
+            {"$group": {"_id": "$stimulus_id", "latest_doc": {"$first": "$$ROOT"}}},
+        ]
+
+        results = list(recommendations_collection.aggregate(pipeline))
+
+        if results:
+            recommendations = [
+                StimulusRecommendations(**rec["latest_doc"]) for rec in results
+            ]
+            return recommendations
         else:
-            error_recs["conclusion_es"] = f"Estado inesperado de la IA: {run.status}"
-            return error_recs
+            raise HTTPException(
+                status_code=404,
+                detail="No se encontraron recomendaciones para esta carpeta",
+            )
 
-    except OpenAIError as oe:
-        print(f"[ERROR IA] Excepción API: {str(oe)}")
-        error_recs["conclusion_es"] = f"Error de conexión con OpenAI: {str(oe)}"
-        return error_recs
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=f"Validation Error: {e.json()}")
     except Exception as e:
-        print(f"[ERROR IA] Error General: {str(e)}")
-        error_recs["conclusion_es"] = f"Error interno en microservicio: {str(e)}"
-        return error_recs
-
-@router.get("/stimulus/{stimulus_id}", response_model=RecommendationResponse)
-async def get_recommendation_by_stimulus(stimulus_id: int):
-    result = recommendations_collection.find_one({"stimulus_id": stimulus_id})
-    if result:
-        result.pop("_id", None)
-        return result
-    raise HTTPException(status_code=404, detail="Recommendation not found")
+        raise HTTPException(status_code=500, detail=str(e))
