@@ -1,15 +1,12 @@
 import re
 from app.model.recommendation_model import Interpretations, Recommendation, StimulusRecommendations
 from app.model.recommendation_request_model import RecommendationRequest
-from fastapi import FastAPI, HTTPException, APIRouter
-from openai import OpenAI, OpenAIError
-from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, APIRouter, Request
 import os
-import json
-from pydantic import BaseModel, ValidationError
-from typing import List
+import requests
 import pymongo
 from bson import ObjectId
+from dotenv import load_dotenv
 
 # Cargar variables de entorno
 load_dotenv("app/.env", override=False)
@@ -18,37 +15,21 @@ mongo_url = os.environ.get("MONGO_URL")
 router = APIRouter()
 pymongo_client = pymongo.MongoClient(mongo_url)
 
-API_KEY = os.environ.get("OPENAI_KEY")
-ASSISTANT_ID = os.environ.get("ASSISTANT_ID")
-
-# Cliente OpenAI
-client = OpenAI(api_key=API_KEY)
-
-# Recuperar el asistente configurado
-try:
-    assistant = client.beta.assistants.retrieve(assistant_id=ASSISTANT_ID)
-except Exception as e:
-    print(f"--- ERROR AL RECUPERAR ASISTENTE --- ID: {ASSISTANT_ID} | Error: {str(e)}")
-
-def clean_json_string(json_string):
-    """
-    Limpia la respuesta de OpenAI eliminando bloques de código markdown
-    y caracteres extraños para asegurar un parseo JSON exitoso.
-    """
-    pattern = r"```json\s*(.*?)\s*```"
-    match = re.search(pattern, json_string, flags=re.DOTALL)
-    if match:
-        cleaned = match.group(1).strip()
-    else:
-        cleaned = json_string.strip().replace("```json", "").replace("```", "")
-    return cleaned
+# Configuración del orquestador n8n
+N8N_WEBHOOK_URL = "https://n8n.troiatec.com/webhook-test/582094c9-1ff8-4657-a43e-251336b47f83"
 
 @router.post("/recommendation/")
-def generate_recommendations(stimulus: RecommendationRequest):
+async def generate_recommendations(stimulus: RecommendationRequest, request: Request):
+    """
+    Recibe la petición del frontend, crea el registro en Mongo y delega a n8n.
+    """
     recommendations_collection = pymongo_client.get_database("analyzer").get_collection("recommendations")
     
-    # Estructura base para respuesta de error/inicial
-    error_recs_data = {
+    # Extraemos el token original por si n8n necesita validar permisos
+    auth_header = request.headers.get("authorization")
+
+    # Estructura inicial del documento
+    initial_doc = {
         "stimulus_id": stimulus.stimulus_id,
         "folder_id": stimulus.folder_id,
         "recommendations": [],
@@ -62,116 +43,56 @@ def generate_recommendations(stimulus: RecommendationRequest):
         "conclusion_es": "",
         "image_url": stimulus.image_url,
         "benchmark": stimulus.benchmark,
-        "status": 5, 
+        "status": 3, # Estado: Procesando (activa el spinner en React)
     }
 
     try:
-        # 1. Insertar registro inicial con status 3 (Procesando)
-        initial_doc = error_recs_data.copy()
-        initial_doc["status"] = 3
-        inserted_recs = recommendations_collection.insert_one(initial_doc)
-        inserted_id = inserted_recs.inserted_id
+        # 1. Insertar en MongoDB para que el sistema sepa que empezó el proceso
+        inserted_result = recommendations_collection.insert_one(initial_doc)
+        inserted_id = str(inserted_result.inserted_id)
 
-        # 2. Preparar métricas para el prompt
-        metricas_str = ", ".join(f"{d.name}: {d.score}" for d in stimulus.metrics)
+        # 2. Preparar el paquete para n8n
+        # Enviamos todo el JSON del frontend + el ID de la base de datos para que n8n sepa qué actualizar al final
+        payload = stimulus.dict()
+        payload["mongo_insertion_id"] = inserted_id 
 
-        # 3. Construir UN SOLO content_payload con texto e imágenes validadas
-        content_payload = [
-            {
-                "type": "text", 
-                "text": f"Imagen de {stimulus.benchmark} con métricas {metricas_str}. Analiza las imágenes visuales y genera el JSON con recomendaciones e interpretaciones."
-            }
-        ]
-
-        # Lista de posibles imágenes a enviar
-        images_to_validate = [
-            stimulus.image_url,
-            stimulus.heatmap_url,
-            stimulus.gaze_plot_url,
-            stimulus.focus_map_url,
-            stimulus.aoi_url
-        ]
-
-        # Filtrar solo URLs válidas y agregarlas una sola vez
-        for url in images_to_validate:
-            if url and isinstance(url, str) and url.startswith("http"):
-                content_payload.append({
-                    "type": "image_url",
-                    "image_url": {"url": url, "detail": "low"}
-                })
-
-        # 4. Crear hilo y enviar el mensaje consolidado
-        thread = client.beta.threads.create()
-        client.beta.threads.messages.create(
-            thread_id=thread.id,
-            role="user",
-            content=content_payload
-        )
-
-        # 5. Ejecutar y esperar respuesta
-        run = client.beta.threads.runs.create_and_poll(
-            thread_id=thread.id, 
-            assistant_id=assistant.id
-        )
-
-        # 6. Procesar resultado
-        if run.status == "completed":
-            messages = list(client.beta.threads.messages.list(thread_id=thread.id, run_id=run.id))
-            raw_response = messages[0].content[0].text.value
+        # 3. Disparar el Webhook de n8n
+        headers = {"Authorization": auth_header} if auth_header else {}
+        
+        try:
+            # Enviamos el POST y no esperamos a que termine (timeout corto de conexión)
+            n8n_response = requests.post(
+                N8N_WEBHOOK_URL, 
+                json=payload, 
+                headers=headers,
+                timeout=5 
+            )
             
-            # Limpiar y cargar JSON
-            json_data = json.loads(clean_json_string(raw_response))
-            
-            recommendations = [Recommendation(**item) for item in json_data.get("recomendaciones", [])]
-            interpretations = Interpretations(**json_data.get("interpretaciones", {}))
-
-            final_update = {
-                "recommendations": [r.dict() for r in recommendations],
-                "interpretations": interpretations.dict(),
-                "conclusion_en": json_data.get("conclusion_en", ""),
-                "conclusion_es": json_data.get("conclusion_es", ""),
-                "status": 4 
+            return {
+                "status": "forwarded_to_n8n",
+                "mongo_id": inserted_id,
+                "n8n_status": n8n_response.status_code,
+                "message": "Petición delegada al flujo de n8n exitosamente."
             }
 
+        except requests.exceptions.RequestException as e:
+            print(f"--- FALLO DE CONEXIÓN CON N8N --- {str(e)}")
+            # Si n8n está caído, marcamos el error en la DB
             recommendations_collection.update_one(
                 {"_id": ObjectId(inserted_id)},
-                {"$set": final_update}
+                {"$set": {"status": 5}}
             )
-
-            return StimulusRecommendations(
-                stimulus_id=stimulus.stimulus_id,
-                folder_id=stimulus.folder_id,
-                recommendations=recommendations,
-                interpretations=interpretations,
-                conclusion_en=final_update["conclusion_en"],
-                conclusion_es=final_update["conclusion_es"],
-                image_url=stimulus.image_url,
-                benchmark=stimulus.benchmark,
-                status=4
-            )
-
-        else:
-            # LOG DETALLADO DE FALLO (Esto es lo que vimos en la terminal)
-            error_detail = getattr(run, 'last_error', 'Sin detalle adicional')
-            print(f"--- OPENAI RUN FAILED --- Status: {run.status} | Error: {error_detail}")
-            
-            recommendations_collection.update_one(
-                {"_id": ObjectId(inserted_id)},
-                {"$set": error_recs_data}
-            )
-            return error_recs_data
+            raise HTTPException(status_code=502, detail="El orquestador n8n no está respondiendo.")
 
     except Exception as e:
-        print(f"--- ERROR CRÍTICO EN RECOMMENDATION --- {str(e)}")
-        if 'inserted_id' in locals():
-            recommendations_collection.update_one(
-                {"_id": ObjectId(inserted_id)},
-                {"$set": error_recs_data}
-            )
+        print(f"--- ERROR CRÍTICO EN PUENTE --- {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/recommendation/stimulus/{stimulus_id}")
 def get_recommendations_by_stimulus_id(stimulus_id: int):
+    """
+    Este endpoint sigue igual para que el frontend pueda preguntar: ¿Ya terminó n8n?
+    """
     try:
         recommendations_collection = pymongo_client.get_database("analyzer").get_collection("recommendations")
         result = recommendations_collection.find_one(
@@ -179,6 +100,7 @@ def get_recommendations_by_stimulus_id(stimulus_id: int):
         )
 
         if result:
+            result["_id"] = str(result["_id"]) # Convertir ObjectId a string para JSON
             return StimulusRecommendations(**result)
         else:
             return {
@@ -193,7 +115,7 @@ def get_recommendations_by_stimulus_id(stimulus_id: int):
                 "status": 1,
             }
     except Exception as e:
-        print(f"--- ERROR EN GET STIMULUS --- {str(e)}")
+        print(f"--- ERROR EN CONSULTA STIMULUS --- {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/recommendation/folder/{folder_id}")
@@ -208,8 +130,10 @@ def get_recommendations_by_folder_id(folder_id: int):
         results = list(recommendations_collection.aggregate(pipeline))
 
         if results:
+            for res in results:
+                res["latest_doc"]["_id"] = str(res["latest_doc"]["_id"])
             return [StimulusRecommendations(**rec["latest_doc"]) for rec in results]
         else:
-            raise HTTPException(status_code=404, detail="No se encontraron recomendaciones")
+            raise HTTPException(status_code=404, detail="Carpeta no encontrada")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
