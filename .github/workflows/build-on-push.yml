@@ -26,47 +26,21 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # - name: Cache Docker layers
-      #   uses: actions/cache@v3
-      #   with:
-      #     path: /tmp/.buildx-cache
-      #     key: ${{ runner.os }}-buildx-${{ github.sha }}
-      #     restore-keys: |
-      #       ${{ runner.os }}-buildx-
-
       - name: Extract git commit SHA
         id: vars
         run: echo "GIT_COMMIT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-
-      # - name: Build and push Docker image
-      #   uses: docker/build-push-action@v4
-      #   with:
-      #     context: .
-      #     file: "Python Dockerfile"
-      #     push: true
-      #     tags: |
-      #       ${{ secrets.DOCKER_USERNAME }}/analyzer-metrics-python:latest
-      #       ${{ secrets.DOCKER_USERNAME }}/analyzer-metrics-python:${{ env.GIT_COMMIT }}
-      #     build-args: |
-      #       APP_VERSION=${{ env.GIT_COMMIT }}
-
-          # cache-from: type=local,src=/tmp/.buildx-cache
-          # cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
           context: .
-          # file: "Tensorflow Dockerfile"
           push: true
+          # Forzamos el uso del usuario soportetroiatec para que coincida con los permisos de k8s
           tags: |
-            ${{ secrets.DOCKER_USERNAME }}/analyzer-metrics-tensorflow:latest
-            ${{ secrets.DOCKER_USERNAME }}/analyzer-metrics-tensorflow:${{ env.GIT_COMMIT }}
+            soportetroiatec/analyzer-metrics-tensorflow:latest
+            soportetroiatec/analyzer-metrics-tensorflow:${{ env.GIT_COMMIT }}
           build-args: |
             APP_VERSION=${{ env.GIT_COMMIT }}
-
-          # cache-from: type=local,src=/tmp/.buildx-cache
-          # cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
 
       - name: Checkout definitions repository
         uses: actions/checkout@v2
@@ -79,18 +53,23 @@ jobs:
       - name: Update Kubernetes YAML
         run: |
           cd definitions/analyzer/k8s
-          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.GIT_COMMIT }}|g" metrics/staging/analyzer-metrics-deployment.yml
+          
+          # Actualizamos la API principal de Staging
+          # El regex .*/ busca cualquier usuario previo (ojrivera o soportetroiatec) y lo unifica
+          sed -i "s|image: .*/analyzer-metrics-tensorflow:.*|image: soportetroiatec/analyzer-metrics-tensorflow:${{ env.GIT_COMMIT }}|g" metrics/staging/analyzer-metrics-deployment.yml
 
-          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.GIT_COMMIT }}|g" metrics-celery/staging/analyzer-caracteristics-celery-deployment.yml
-          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.GIT_COMMIT }}|g" metrics-celery/staging/analyzer-feng-celery-deployment.yml
-          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.GIT_COMMIT }}|g" metrics-celery/staging/analyzer-prediction-celery-deployment.yml
-          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.GIT_COMMIT }}|g" metrics-celery/staging/analyzer-vids-celery-deployment.yml
+          # Actualizamos todos los Workers de Celery en Staging
+          sed -i "s|image: .*/analyzer-metrics-tensorflow:.*|image: soportetroiatec/analyzer-metrics-tensorflow:${{ env.GIT_COMMIT }}|g" metrics-celery/staging/analyzer-caracteristics-celery-deployment.yml
+          sed -i "s|image: .*/analyzer-metrics-tensorflow:.*|image: soportetroiatec/analyzer-metrics-tensorflow:${{ env.GIT_COMMIT }}|g" metrics-celery/staging/analyzer-feng-celery-deployment.yml
+          sed -i "s|image: .*/analyzer-metrics-tensorflow:.*|image: soportetroiatec/analyzer-metrics-tensorflow:${{ env.GIT_COMMIT }}|g" metrics-celery/staging/analyzer-prediction-celery-deployment.yml
+          sed -i "s|image: .*/analyzer-metrics-tensorflow:.*|image: soportetroiatec/analyzer-metrics-tensorflow:${{ env.GIT_COMMIT }}|g" metrics-celery/staging/analyzer-vids-celery-deployment.yml
 
+          # Configuración de Git para hacer el commit en el repo de definiciones
           git config --global init.defaultBranch main
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add .
-          git commit -m "Update image version to ${{ env.GIT_COMMIT }}"
+          git commit -m "chore: update staging images to soportetroiatec/analyzer-metrics-tensorflow:${{ env.GIT_COMMIT }}"
           git push origin main
 
       - name: Record end time
@@ -111,5 +90,5 @@ jobs:
           MINUTES=$((DURATION / 60))
           SECONDS=$((DURATION % 60))
           curl -X POST -H 'Content-type: application/json' --data '{
-            "text": "La construccion del la imagen de analyzer-metrics-[python/tensorflow]:${{ env.GIT_COMMIT }} ha finalizado. ('"$MINUTES"':'"$SECONDS"')"
+            "text": "🚀 Despliegue de Staging finalizado correctamente.\nImagen: soportetroiatec/analyzer-metrics-tensorflow:${{ env.GIT_COMMIT }}\nDuración: '"$MINUTES"':'"$SECONDS"'"
           }' https://hooks.slack.com/services/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
