@@ -62,7 +62,7 @@ def generate_recommendations(stimulus: RecommendationRequest):
         "conclusion_es": "",
         "image_url": stimulus.image_url,
         "benchmark": stimulus.benchmark,
-        "status": 5, # Status 5 indica error en el flujo
+        "status": 5, 
     }
 
     try:
@@ -75,17 +75,16 @@ def generate_recommendations(stimulus: RecommendationRequest):
         # 2. Preparar métricas para el prompt
         metricas_str = ", ".join(f"{d.name}: {d.score}" for d in stimulus.metrics)
 
-        # 3. Construir lista de contenido para OpenAI validando URLs
-        # Esto evita el 'server_error' de OpenAI cuando una URL es inválida o vacía
+        # 3. Construir UN SOLO content_payload con texto e imágenes validadas
         content_payload = [
             {
                 "type": "text", 
-                "text": f"Imagen de {stimulus.benchmark} con métricas {metricas_str}"
+                "text": f"Imagen de {stimulus.benchmark} con métricas {metricas_str}. Analiza las imágenes visuales y genera el JSON con recomendaciones e interpretaciones."
             }
         ]
 
-        # Mapeo de imágenes opcionales
-        images_map = [
+        # Lista de posibles imágenes a enviar
+        images_to_validate = [
             stimulus.image_url,
             stimulus.heatmap_url,
             stimulus.gaze_plot_url,
@@ -93,14 +92,15 @@ def generate_recommendations(stimulus: RecommendationRequest):
             stimulus.aoi_url
         ]
 
-        for url in images_map:
-            if url and url.startswith("http"):
+        # Filtrar solo URLs válidas y agregarlas una sola vez
+        for url in images_to_validate:
+            if url and isinstance(url, str) and url.startswith("http"):
                 content_payload.append({
                     "type": "image_url",
                     "image_url": {"url": url, "detail": "low"}
                 })
 
-        # 4. Crear hilo y ejecutar run
+        # 4. Crear hilo y enviar el mensaje consolidado
         thread = client.beta.threads.create()
         client.beta.threads.messages.create(
             thread_id=thread.id,
@@ -108,12 +108,13 @@ def generate_recommendations(stimulus: RecommendationRequest):
             content=content_payload
         )
 
+        # 5. Ejecutar y esperar respuesta
         run = client.beta.threads.runs.create_and_poll(
             thread_id=thread.id, 
             assistant_id=assistant.id
         )
 
-        # 5. Procesar resultado
+        # 6. Procesar resultado
         if run.status == "completed":
             messages = list(client.beta.threads.messages.list(thread_id=thread.id, run_id=run.id))
             raw_response = messages[0].content[0].text.value
@@ -129,7 +130,7 @@ def generate_recommendations(stimulus: RecommendationRequest):
                 "interpretations": interpretations.dict(),
                 "conclusion_en": json_data.get("conclusion_en", ""),
                 "conclusion_es": json_data.get("conclusion_es", ""),
-                "status": 4 # Status 4 indica éxito
+                "status": 4 
             }
 
             recommendations_collection.update_one(
@@ -150,7 +151,7 @@ def generate_recommendations(stimulus: RecommendationRequest):
             )
 
         else:
-            # LOG DE FALLO: Imprime el error real de OpenAI en la consola
+            # LOG DETALLADO DE FALLO (Esto es lo que vimos en la terminal)
             error_detail = getattr(run, 'last_error', 'Sin detalle adicional')
             print(f"--- OPENAI RUN FAILED --- Status: {run.status} | Error: {error_detail}")
             
@@ -162,7 +163,6 @@ def generate_recommendations(stimulus: RecommendationRequest):
 
     except Exception as e:
         print(f"--- ERROR CRÍTICO EN RECOMMENDATION --- {str(e)}")
-        # Intentar marcar como error en DB si el ID existe
         if 'inserted_id' in locals():
             recommendations_collection.update_one(
                 {"_id": ObjectId(inserted_id)},
@@ -179,7 +179,6 @@ def get_recommendations_by_stimulus_id(stimulus_id: int):
         )
 
         if result:
-            # Asegurar compatibilidad de tipos antes de instanciar el modelo
             return StimulusRecommendations(**result)
         else:
             return {
