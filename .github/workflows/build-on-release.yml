@@ -34,9 +34,10 @@ jobs:
         with:
           context: .
           push: true
+          # Unificamos el tag a soportetroiatec para coincidir con los permisos de k8s
           tags: |
-            ${{ secrets.DOCKER_USERNAME }}/analyzer-metrics-tensorflow:latest
-            ${{ secrets.DOCKER_USERNAME }}/analyzer-metrics-tensorflow:${{ env.TAG }}
+            soportetroiatec/analyzer-metrics-tensorflow:latest
+            soportetroiatec/analyzer-metrics-tensorflow:${{ env.TAG }}
           build-args: |
             APP_VERSION=${{ env.TAG }}
 
@@ -51,18 +52,20 @@ jobs:
       - name: Update Kubernetes YAML
         run: |
           cd definitions/analyzer/k8s
-          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics/production/analyzer-metrics-deployment.yml
+          
+          # Usamos regex .*/ para atrapar cualquier usuario previo y reemplazamos por soportetroiatec
+          sed -i "s|image: .*/analyzer-metrics-tensorflow:.*|image: soportetroiatec/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics/production/analyzer-metrics-deployment.yml
 
-          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/production/analyzer-caracteristics-celery-deployment.yml
-          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/production/analyzer-feng-celery-deployment.yml
-          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/production/analyzer-prediction-celery-deployment.yml
-          sed -i "s|image: ojrivera/analyzer-metrics-tensorflow:.*|image: ojrivera/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/production/analyzer-vids-celery-deployment.yml
+          sed -i "s|image: .*/analyzer-metrics-tensorflow:.*|image: soportetroiatec/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/production/analyzer-caracteristics-celery-deployment.yml
+          sed -i "s|image: .*/analyzer-metrics-tensorflow:.*|image: soportetroiatec/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/production/analyzer-feng-celery-deployment.yml
+          sed -i "s|image: .*/analyzer-metrics-tensorflow:.*|image: soportetroiatec/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/production/analyzer-prediction-celery-deployment.yml
+          sed -i "s|image: .*/analyzer-metrics-tensorflow:.*|image: soportetroiatec/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/production/analyzer-vids-celery-deployment.yml
 
           git config --global init.defaultBranch main
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add .
-          git commit -m "Update image version to ${{ env.TAG }}"
+          git commit -m "chore: update production images to soportetroiatec/analyzer-metrics-tensorflow:${{ env.TAG }}"
           git push origin main
 
       - name: Record end time
@@ -77,11 +80,12 @@ jobs:
           DURATION=$((END_TIME - START_TIME))
           echo "DURATION=$DURATION" >> $GITHUB_ENV
 
-      - name: Send notification to Slack
+      - name: Send notification to Discord
         if: success()
         run: |
           MINUTES=$((DURATION / 60))
           SECONDS=$((DURATION % 60))
-          curl -X POST -H 'Content-type: application/json' --data '{
-            "text": "La construccion del la imagen de analyzer api metrics para produccion (${{ env.TAG }}) ha finalizado. tiempo de construccion: ('"$MINUTES"':'"$SECONDS"')"
-          }' https://hooks.slack.com/services/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
+          # Notificación a Discord utilizando la estructura JSON correcta ('content') y protegiendo la URL
+          curl -H "Content-Type: application/json" -d '{
+            "content": "🚀 **Despliegue de Producción finalizado correctamente.**\n**Imagen:** `soportetroiatec/analyzer-metrics-tensorflow:${{ env.TAG }}`\n**Duración:** '"$MINUTES"':'"$SECONDS"'"
+          }' ${{ secrets.DISCORD_WEBHOOK_URL }}
