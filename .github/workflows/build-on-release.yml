@@ -34,7 +34,6 @@ jobs:
         with:
           context: .
           push: true
-          # Unificamos el tag a soportetroiatec para coincidir con los permisos de k8s
           tags: |
             soportetroiatec/analyzer-metrics-tensorflow:latest
             soportetroiatec/analyzer-metrics-tensorflow:${{ env.TAG }}
@@ -53,20 +52,23 @@ jobs:
         run: |
           cd definitions/analyzer/k8s
           
-          # Usamos regex .*/ para atrapar cualquier usuario previo y reemplazamos por soportetroiatec
           sed -i "s|image: .*/analyzer-metrics-tensorflow:.*|image: soportetroiatec/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics/production/analyzer-metrics-deployment.yml
-
           sed -i "s|image: .*/analyzer-metrics-tensorflow:.*|image: soportetroiatec/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/production/analyzer-caracteristics-celery-deployment.yml
           sed -i "s|image: .*/analyzer-metrics-tensorflow:.*|image: soportetroiatec/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/production/analyzer-feng-celery-deployment.yml
           sed -i "s|image: .*/analyzer-metrics-tensorflow:.*|image: soportetroiatec/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/production/analyzer-prediction-celery-deployment.yml
           sed -i "s|image: .*/analyzer-metrics-tensorflow:.*|image: soportetroiatec/analyzer-metrics-tensorflow:${{ env.TAG }}|g" metrics-celery/production/analyzer-vids-celery-deployment.yml
 
           git config --global init.defaultBranch main
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git config --global user.name "github-actions-bot"
+          git config --global user.email "github-actions-bot@users.noreply.github.com"
           git add .
-          git commit -m "chore: update production images to soportetroiatec/analyzer-metrics-tensorflow:${{ env.TAG }}"
-          git push origin main
+          
+          if [[ -n $(git status --porcelain) ]]; then
+            git commit -m "chore: update production images to soportetroiatec/analyzer-metrics-tensorflow:${{ env.TAG }}"
+            git push origin main
+          else
+            echo "No se detectaron cambios en los archivos YAML. Saltando el commit y push."
+          fi
 
       - name: Record end time
         id: end-time
@@ -85,7 +87,6 @@ jobs:
         run: |
           MINUTES=$((DURATION / 60))
           SECONDS=$((DURATION % 60))
-          # Notificación a Discord utilizando la estructura JSON correcta ('content') y protegiendo la URL
           curl -H "Content-Type: application/json" -d '{
             "content": "🚀 **Despliegue de Producción finalizado correctamente.**\n**Imagen:** `soportetroiatec/analyzer-metrics-tensorflow:${{ env.TAG }}`\n**Duración:** '"$MINUTES"':'"$SECONDS"'"
           }' ${{ secrets.DISCORD_WEBHOOK_URL }}
