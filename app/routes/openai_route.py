@@ -26,7 +26,7 @@ api_key = os.environ.get("OPENAI_KEY")
 VECTOR_STORE_ID = os.environ.get("OPENAI_VECTOR_STORE_ID", "vs_MUuUwETHHjWg010XP8zuF5Pu")
 
 # Modelo recomendado para un flujo multimodal + JSON estructurado
-MODEL_NAME = os.environ.get("OPENAI_MODEL", "gpt-5")
+MODEL_NAME = os.environ.get("OPENAI_MODEL", "gpt-4o")
 
 router = APIRouter()
 pymongo_client = pymongo.MongoClient(mongo_url)
@@ -406,3 +406,4 @@ def get_recommendations_by_folder_id(folder_id: int):
         raise HTTPException(status_code=400, detail=f"Validation Error: {e.json()}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
